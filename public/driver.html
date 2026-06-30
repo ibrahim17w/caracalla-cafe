@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>كاراكالا كافيه - السائق</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- Login Screen -->
+  <div class="login-screen" id="loginScreen">
+    <div class="login-box">
+      <h1>☕ كاراكالا كافيه</h1>
+      <p>بوابة السائق</p>
+      <div class="login-error" id="loginError"></div>
+      <div class="form-group">
+        <label>كلمة المرور</label>
+        <div class="password-wrapper">
+          <input type="password" id="loginPassword" placeholder="أدخل كلمة المرور" onkeypress="if(event.key==='Enter')doLogin()">
+          <button type="button" class="password-toggle" onclick="togglePassword()">👁️</button>
+        </div>
+      </div>
+      <button class="btn btn-primary btn-block" onclick="doLogin()">دخول</button>
+    </div>
+  </div>
+
+  <!-- Main Dashboard -->
+  <div id="dashboard" class="hidden">
+    <nav>
+      <h1><span>🛵 السائق</span></h1>
+      <div class="links">
+        <a href="menu.html" target="_blank">القائمة</a>
+        <a href="owner.html" target="_blank">لوحة التحكم</a>
+        <a href="#" onclick="logout()">خروج</a>
+      </div>
+    </nav>
+
+    <div class="container">
+      <div class="stats-grid" id="statsGrid"></div>
+
+      <div class="tabs">
+        <button class="tab active" onclick="filterOrders('ready', this)">جاهز للتوصيل</button>
+        <button class="tab" onclick="filterOrders('delivering', this)">قيد التوصيل</button>
+        <button class="tab" onclick="filterOrders('all', this)">جميع الطلبات</button>
+      </div>
+
+      <div id="ordersContainer"></div>
+    </div>
+  </div>
+
+  <!-- Map Modal -->
+  <div class="modal-overlay hidden" id="mapModal">
+    <div class="modal" style="max-width:700px;">
+      <h2>🗺️ مسار التوصيل</h2>
+      <div class="map-container" id="routeMap" style="height:400px;"></div>
+      <div class="flex gap-1 mt-1 align-center">
+        <button class="btn btn-outline btn-sm" onclick="getDriverCurrentLocation()">📍 تحديد موقعي الحالي</button>
+        <div id="routeDistance" style="margin-right:auto;font-weight:700;color:var(--primary);"></div>
+      </div>
+      <div class="flex gap-1 mt-1">
+        <button class="btn btn-success btn-block" id="deliverBtn" onclick="markDelivered()">✔️ تم التسليم</button>
+        <button class="btn" onclick="closeMapModal()" style="background:#eee;color:var(--text);">إغلاق</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="driver.js"></script>
+</body>
+</html>

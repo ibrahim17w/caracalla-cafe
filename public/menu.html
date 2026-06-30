@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>كاراكالا كافيه - القائمة</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <nav>
+    <h1><img id="cafeLogo" src="" class="logo-img" style="display:none;"><span id="cafeName">☕ كاراكالا كافيه</span></h1>
+    <div class="links">
+      <a href="#" onclick="showCafeLocation()">📍 موقع المقهى</a>
+      <a href="#" onclick="showOrderStatus()">📋 حالة طلبي</a>
+    </div>
+  </nav>
+
+  <div class="container" style="padding-bottom: 100px;">
+    <div class="tabs" id="categoryTabs"></div>
+    <div id="menuGrid" class="grid"></div>
+  </div>
+
+  <!-- Cart Panel -->
+  <div class="cart-panel" id="cartPanel">
+    <div class="cart-info">
+      الطلبات: <span id="cartCount">0</span> | الإجمالي: <span id="cartTotal">0</span> <span style="font-size:0.9rem;">ل.س</span>
+    </div>
+    <button class="btn btn-primary" onclick="openCheckout()">اطلب الآن</button>
+  </div>
+
+  <!-- Item Modal -->
+  <div class="modal-overlay hidden" id="itemModal">
+    <div class="modal">
+      <h2 id="modalItemName">الصنف</h2>
+      <p id="modalItemDesc" style="color:var(--text-muted);margin-bottom:1rem;"></p>
+      <div style="font-size:1.4rem;color:var(--primary);font-weight:800;margin-bottom:1rem;" id="modalItemPrice"></div>
+      <div id="modalAdditions"></div>
+      <div class="form-group">
+        <label>الكمية</label>
+        <input type="number" id="modalQty" value="1" min="1" max="20">
+      </div>
+      <div class="form-group">
+        <label>ملاحظات خاصة</label>
+        <textarea id="modalNotes" rows="2" placeholder="أي طلبات خاصة..."></textarea>
+      </div>
+      <div class="flex gap-1 mt-1">
+        <button class="btn btn-primary btn-block" onclick="addToCart()">أضف للطلب</button>
+        <button class="btn" onclick="closeModal()" style="background:#eee;color:var(--text);">إلغاء</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Checkout Modal -->
+  <div class="modal-overlay hidden" id="checkoutModal">
+    <div class="modal" style="max-width:560px;">
+      <h2>إتمام الطلب</h2>
+      <div id="checkoutItems" style="margin-bottom:1rem;max-height:250px;overflow-y:auto;"></div>
+      <div style="font-size:1.3rem;font-weight:800;color:var(--primary);text-align:left;margin-bottom:1.5rem;" id="checkoutTotal"></div>
+      <div class="order-type-select" id="orderTypeSelect">
+        <div class="order-type-option selected" onclick="selectOrderType('dine_in', this)" data-type="dine_in">
+          <div class="icon">🍽️</div>
+          <div class="label">داخل المقهى</div>
+        </div>
+        <div class="order-type-option" onclick="selectOrderType('delivery', this)" data-type="delivery">
+          <div class="icon">🛵</div>
+          <div class="label">توصيل</div>
+        </div>
+      </div>
+      <div id="dineInFields">
+        <div class="form-group">
+          <label>رقم الطاولة <span class="text-muted text-sm">(اختياري)</span></label>
+          <input type="text" id="tableNumber" placeholder="مثلاً: 5">
+        </div>
+      </div>
+      <div id="deliveryFields" class="hidden">
+        <div class="form-group">
+          <label>رقم الهاتف</label>
+          <input type="tel" id="phoneNumber" placeholder="09xxxxxxxx">
+        </div>
+        <div class="form-group">
+          <label>الموقع على الخريطة</label>
+          <div class="map-container" id="deliveryMap"></div>
+          <button class="btn btn-outline btn-sm mt-1" onclick="getCurrentLocation()">📍 تحديد موقعي الحالي</button>
+        </div>
+        <div class="form-group">
+          <label>العنوان التفصيلي</label>
+          <textarea id="addressText" rows="2" placeholder="اسم الشارع، البناء، الطابق..."></textarea>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>الاسم <span class="text-muted text-sm">(اختياري)</span></label>
+        <input type="text" id="customerName" placeholder="اسمك">
+      </div>
+      <div class="flex gap-1 mt-1">
+        <button class="btn btn-success btn-block" onclick="submitOrder()">تأكيد الطلب</button>
+        <button class="btn" onclick="closeCheckout()" style="background:#eee;color:var(--text);">رجوع</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Success Modal -->
+  <div class="modal-overlay hidden" id="successModal">
+    <div class="modal text-center">
+      <div style="font-size:4rem;margin-bottom:1rem;">✅</div>
+      <h2>تم إرسال طلبك بنجاح!</h2>
+      <p style="color:var(--text-muted);margin:1rem 0;">رقم الطلب: <span id="successOrderId" style="font-weight:800;color:var(--primary);"></span></p>
+      <p style="color:var(--text-muted);font-size:0.9rem;">سنبدأ بتجهيز طلبك فوراً</p>
+      <button class="btn btn-primary btn-block mt-1" onclick="closeSuccess()">حسناً</button>
+    </div>
+  </div>
+
+  <!-- Cafe Location Modal -->
+  <div class="modal-overlay hidden" id="cafeLocationModal">
+    <div class="modal" style="max-width:600px;">
+      <h2>📍 موقع كاراكالا كافيه</h2>
+      <div class="map-container" id="cafeMap" style="height:350px;"></div>
+      <div class="flex gap-1 mt-1 align-center">
+        <button class="btn btn-outline btn-sm" onclick="getCafeCurrentLocation()">📍 تحديد موقعي الحالي</button>
+        <div id="cafeDistance" style="margin-right:auto;font-weight:700;color:var(--primary);"></div>
+      </div>
+      <button class="btn btn-primary btn-block mt-1" onclick="closeCafeLocation()">إغلاق</button>
+    </div>
+  </div>
+
+  <!-- Order Status Modal -->
+  <div class="modal-overlay hidden" id="orderStatusModal">
+    <div class="modal" style="max-width:500px;">
+      <h2>📋 تتبع الطلب</h2>
+      <div class="form-group">
+        <label>رقم الطلب</label>
+        <input type="number" id="trackOrderId" placeholder="أدخل رقم الطلب">
+      </div>
+      <button class="btn btn-primary btn-block mb-1" onclick="trackOrder()">بحث</button>
+      <div id="trackResult"></div>
+      <button class="btn btn-outline btn-block mt-1" onclick="closeOrderStatus()">إغلاق</button>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

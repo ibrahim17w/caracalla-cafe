@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>كاراكالا كافيه - لوحة التحكم</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- Login Screen -->
+  <div class="login-screen" id="loginScreen">
+    <div class="login-box">
+      <h1>☕ كاراكالا كافيه</h1>
+      <p>لوحة التحكم</p>
+      <div class="login-error" id="loginError"></div>
+      <div class="form-group">
+        <label>كلمة المرور</label>
+        <div class="password-wrapper">
+          <input type="password" id="loginPassword" placeholder="أدخل كلمة المرور" onkeypress="if(event.key==='Enter')doLogin()">
+          <button type="button" class="password-toggle" onclick="togglePassword()">👁️</button>
+        </div>
+      </div>
+      <button class="btn btn-primary btn-block" onclick="doLogin()">دخول</button>
+    </div>
+  </div>
+
+  <!-- Main Dashboard -->
+  <div id="dashboard" class="hidden">
+    <nav>
+      <h1><img id="navLogo" src="" class="logo-img" style="display:none;"><span id="navTitle">☕ كاراكالا كافيه</span></h1>
+      <div class="links">
+        <a href="menu.html" target="_blank">القائمة</a>
+        <a href="driver.html" target="_blank">السائق</a>
+        <a href="#" onclick="logout()">خروج</a>
+      </div>
+    </nav>
+
+    <div class="container">
+      <!-- QR Code -->
+      <div class="card qr-section">
+        <h2>رمز QR للزبائن</h2>
+        <p>اطبع هذا الرمز وضعه على الطاولات</p>
+        <img id="qrImage" src="" alt="QR Code">
+        <p id="qrUrl" style="font-size:0.8rem;word-break:break-all;color:var(--text-muted);"></p>
+        <div class="flex gap-1 justify-center">
+          <button class="btn btn-primary" onclick="shareQR()">📤 مشاركة</button>
+          <button class="btn btn-outline" onclick="printQR()">🖨️ طباعة</button>
+        </div>
+      </div>
+
+      <!-- Stats -->
+      <div class="stats-grid" id="statsGrid"></div>
+
+      <!-- Tabs -->
+      <div class="tabs">
+        <button class="tab active" onclick="switchTab('items', this)">الأصناف</button>
+        <button class="tab" onclick="switchTab('add', this)">إضافة صنف</button>
+        <button class="tab" onclick="switchTab('categories', this)">الأقسام</button>
+        <button class="tab" onclick="switchTab('orders', this)">الطلبات</button>
+        <button class="tab" onclick="switchTab('settings', this)">الإعدادات</button>
+      </div>
+
+      <!-- Items Tab -->
+      <div id="tab-items">
+        <div class="form-group" style="margin-bottom:1rem;">
+          <input type="text" id="itemSearch" placeholder="🔍 البحث في الأصناف..." oninput="filterItems()">
+        </div>
+        <div class="grid" id="ownerItemsGrid"></div>
+      </div>
+
+      <!-- Add Item Tab -->
+      <div id="tab-add" class="hidden">
+        <div class="card">
+          <h2>إضافة صنف جديد</h2>
+          <div class="form-group">
+            <label>الاسم</label>
+            <input type="text" id="newName" placeholder="اسم الصنف">
+          </div>
+          <div class="form-group">
+            <label>القسم</label>
+            <select id="newCategory"></select>
+          </div>
+          <div class="form-group">
+            <label>الوصف</label>
+            <textarea id="newDesc" rows="2"></textarea>
+          </div>
+          <div class="form-group">
+            <label>السعر (ل.س)</label>
+            <input type="number" id="newPrice" placeholder="0">
+          </div>
+          <div class="form-group">
+            <label>المخزون (اختياري)</label>
+            <input type="number" id="newStock" placeholder="مثلاً: 50">
+          </div>
+          <div class="form-group">
+            <label>الصورة (اختياري)</label>
+            <div class="image-preview" id="newImagePreview" onclick="document.getElementById('newImage').click()">
+              <span>📷 اضغط لاختيار صورة</span>
+            </div>
+            <input type="file" id="newImage" accept="image/*" onchange="previewImage(this, 'newImagePreview')">
+          </div>
+          <div class="form-group">
+            <label>إضافات / إكسسوارات</label>
+            <div id="newAdditions"></div>
+            <button class="btn btn-outline btn-sm mt-1" onclick="addAdditionRow('newAdditions')">+ إضافة جديدة</button>
+          </div>
+          <button class="btn btn-success btn-block" onclick="saveItem()">حفظ الصنف</button>
+        </div>
+      </div>
+
+      <!-- Categories Tab -->
+      <div id="tab-categories" class="hidden">
+        <div class="card">
+          <h2>إضافة قسم جديد</h2>
+          <div class="flex gap-1 align-center">
+            <input type="text" id="newCatName" placeholder="اسم القسم" style="flex:1;">
+            <button class="btn btn-success" onclick="addCategory()">إضافة</button>
+          </div>
+        </div>
+        <div class="card">
+          <h2>الأقسام الحالية (اسحب لإعادة الترتيب)</h2>
+          <div id="categoriesList"></div>
+        </div>
+      </div>
+
+      <!-- Orders Tab -->
+      <div id="tab-orders" class="hidden">
+        <div id="ownerOrders"></div>
+      </div>
+
+      <!-- Settings Tab -->
+      <div id="tab-settings" class="hidden">
+        <div class="card">
+          <h2>إعدادات المقهى</h2>
+          <div class="form-group">
+            <label>اسم المقهى</label>
+            <input type="text" id="setCafeName" placeholder="كاراكالا كافيه">
+          </div>
+          <div class="form-group">
+            <label>رقم الهاتف</label>
+            <input type="text" id="setCafePhone" placeholder="09xxxxxxxx">
+          </div>
+          <div class="form-group">
+            <label>العنوان</label>
+            <input type="text" id="setCafeAddress" placeholder="عنوان المقهى">
+          </div>
+          <div class="form-group">
+            <label>المنطقة الزمنية</label>
+            <select id="setTimezone">
+              <option value="Asia/Damascus">سوريا (دمشق)</option>
+              <option value="Asia/Beirut">لبنان (بيروت)</option>
+              <option value="Asia/Amman">الأردن (عمان)</option>
+              <option value="Asia/Baghdad">العراق (بغداد)</option>
+              <option value="Asia/Riyadh">السعودية (الرياض)</option>
+              <option value="UTC">UTC</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>شعار المقهى (اختياري)</label>
+            <div class="image-preview" id="setLogoPreview" onclick="document.getElementById('setLogo').click()">
+              <span>📷 اضغط لاختيار شعار</span>
+            </div>
+            <input type="file" id="setLogo" accept="image/*" onchange="previewImage(this, 'setLogoPreview')">
+          </div>
+          <div class="form-group">
+            <label>موقع المقهى على الخريطة</label>
+            <div class="map-container" id="cafeSettingMap"></div>
+            <button class="btn btn-outline btn-sm mt-1" onclick="getCafeCurrentLocation()">📍 تحديد موقعي الحالي</button>
+          </div>
+          <button class="btn btn-success btn-block" onclick="saveSettings()">حفظ الإعدادات</button>
+        </div>
+
+        <div class="card">
+          <h2>إعدادات الفاتورة</h2>
+          <div class="form-group">
+            <label>نص أسفل الفاتورة</label>
+            <textarea id="setReceiptFooter" rows="2" placeholder="شكراً لزيارتكم..."></textarea>
+          </div>
+          <div id="receiptCustomFields"></div>
+          <button class="btn btn-outline btn-sm mt-1" onclick="addReceiptField()">+ إضافة حقل مخصص</button>
+          <button class="btn btn-success btn-block mt-1" onclick="saveReceiptSettings()">حفظ إعدادات الفاتورة</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Edit Modal -->
+  <div class="modal-overlay hidden" id="editModal">
+    <div class="modal">
+      <h2>تعديل الصنف</h2>
+      <input type="hidden" id="editId">
+      <div class="form-group">
+        <label>الاسم</label>
+        <input type="text" id="editName">
+      </div>
+      <div class="form-group">
+        <label>القسم</label>
+        <select id="editCategory"></select>
+      </div>
+      <div class="form-group">
+        <label>الوصف</label>
+        <textarea id="editDesc" rows="2"></textarea>
+      </div>
+      <div class="form-group">
+        <label>السعر (ل.س)</label>
+        <input type="number" id="editPrice">
+      </div>
+      <div class="form-group">
+        <label>المخزون</label>
+        <input type="number" id="editStock" placeholder="اتركه فارغاً إذا غير محدد">
+      </div>
+      <div class="form-group">
+        <label>الصورة</label>
+        <div class="image-preview" id="editImagePreview" onclick="document.getElementById('editImage').click()">
+          <span>📷 اضغط لاختيار صورة</span>
+        </div>
+        <input type="file" id="editImage" accept="image/*" onchange="previewImage(this, 'editImagePreview')">
+        <button class="btn btn-outline btn-sm mt-1" onclick="document.getElementById('editImage').click()">تعديل الصورة</button>
+      </div>
+      <div class="form-group">
+        <label>متاح</label>
+        <select id="editAvailable">
+          <option value="true">نعم</option>
+          <option value="false">لا</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>إضافات</label>
+        <div id="editAdditions"></div>
+        <button class="btn btn-outline btn-sm mt-1" onclick="addEditAdditionRow()">+ إضافة جديدة</button>
+      </div>
+      <div class="flex gap-1 mt-1">
+        <button class="btn btn-success" onclick="updateItem()">تحديث</button>
+        <button class="btn btn-danger" onclick="deleteItem()">حذف</button>
+        <button class="btn" onclick="closeEditModal()" style="background:#eee;color:var(--text);">إلغاء</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Receipt Modal -->
+  <div class="modal-overlay hidden" id="receiptModal">
+    <div class="modal" style="max-width:400px;">
+      <div id="receiptContent"></div>
+      <div class="flex gap-1 mt-1">
+        <button class="btn btn-primary btn-block" onclick="printReceipt()">🖨️ طباعة</button>
+        <button class="btn" onclick="closeReceiptModal()" style="background:#eee;color:var(--text);">إغلاق</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Order Map Modal -->
+  <div class="modal-overlay hidden" id="mapModal">
+    <div class="modal" style="max-width:600px;">
+      <h2>موقع التوصيل</h2>
+      <div class="map-container" id="orderMap" style="height:350px;"></div>
+      <button class="btn btn-primary btn-block mt-1" onclick="closeMapModal()">إغلاق</button>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="owner.js"></script>
+</body>
+</html>
