@@ -26,12 +26,15 @@ if (process.env.DATABASE_URL) {
   });
 }
 
-// Multer config
+const os = require('os');
+
+// Multer config — store in temp dir, convert to Base64, then delete
+const tmpDir = path.join(os.tmpdir(), 'caracalla-uploads');
+if (!fs.existsSync(tmpDir)) fs.mkdirSync(tmpDir, { recursive: true });
+
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    const uploadDir = path.join(__dirname, 'public', 'uploads');
-    if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
-    cb(null, uploadDir);
+    cb(null, tmpDir);
   },
   filename: (req, file, cb) => {
     const unique = Date.now() + '-' + Math.round(Math.random() * 1e9);
@@ -170,7 +173,18 @@ app.delete('/api/settings/:key', verifyToken, requireRole(['owner']), async (req
 // ===================== UPLOAD =====================
 app.post('/api/upload', verifyToken, requireRole(['owner']), upload.single('image'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
-  res.json({ path: '/uploads/' + req.file.filename });
+  try {
+    // Read file and convert to Base64 data URL
+    const fileBuffer = fs.readFileSync(req.file.path);
+    const base64 = fileBuffer.toString('base64');
+    const dataUrl = `data:${req.file.mimetype};base64,${base64}`;
+    // Clean up temp file
+    fs.unlinkSync(req.file.path);
+    res.json({ path: dataUrl });
+  } catch (err) {
+    if (fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // ===================== CATEGORIES =====================
@@ -237,7 +251,15 @@ app.get('/api/items/:id', async (req, res) => {
 
 app.post('/api/items', verifyToken, requireRole(['owner']), upload.single('image'), async (req, res) => {
   const { category_id, name, description, price, stock, additions } = req.body;
-  const imagePath = req.file ? '/uploads/' + req.file.filename : null;
+  let imagePath = null;
+  if (req.file) {
+    try {
+      const fileBuffer = fs.readFileSync(req.file.path);
+      const base64 = fileBuffer.toString('base64');
+      imagePath = `data:${req.file.mimetype};base64,${base64}`;
+      fs.unlinkSync(req.file.path);
+    } catch (e) { imagePath = null; }
+  }
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
@@ -258,7 +280,7 @@ app.post('/api/items', verifyToken, requireRole(['owner']), upload.single('image
     res.json(item);
   } catch (err) {
     await client.query('ROLLBACK');
-    if (req.file) fs.unlinkSync(req.file.path);
+    if (req.file && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
     res.status(500).json({ error: err.message });
   } finally { client.release(); }
 });
@@ -282,8 +304,12 @@ app.put('/api/items/:id', verifyToken, requireRole(['owner']), upload.single('im
     const oldImage = oldItem.rows[0]?.image_path;
     let imagePath = oldImage;
     if (req.file) {
-      imagePath = '/uploads/' + req.file.filename;
-      if (oldImage) { const oldPath = path.join(__dirname, 'public', oldImage); if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath); }
+      try {
+        const fileBuffer = fs.readFileSync(req.file.path);
+        const base64 = fileBuffer.toString('base64');
+        imagePath = `data:${req.file.mimetype};base64,${base64}`;
+        fs.unlinkSync(req.file.path);
+      } catch (e) { imagePath = oldImage; }
     }
     const itemResult = await client.query(
       'UPDATE items SET category_id=$1, name=$2, description=$3, price=$4, stock=$5, image_path=$6, is_available=$7 WHERE id=$8 RETURNING *',
@@ -300,16 +326,13 @@ app.put('/api/items/:id', verifyToken, requireRole(['owner']), upload.single('im
     res.json(itemResult.rows[0]);
   } catch (err) {
     await client.query('ROLLBACK');
-    if (req.file) fs.unlinkSync(req.file.path);
+    if (req.file && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
     res.status(500).json({ error: err.message });
   } finally { client.release(); }
 });
 
 app.delete('/api/items/:id', verifyToken, requireRole(['owner']), async (req, res) => {
   try {
-    const itemResult = await pool.query('SELECT image_path FROM items WHERE id = $1', [req.params.id]);
-    const imagePath = itemResult.rows[0]?.image_path;
-    if (imagePath) { const fullPath = path.join(__dirname, 'public', imagePath); if (fs.existsSync(fullPath)) fs.unlinkSync(fullPath); }
     await pool.query('DELETE FROM item_additions WHERE item_id = $1', [req.params.id]);
     await pool.query('DELETE FROM items WHERE id = $1', [req.params.id]);
     res.json({ success: true });
@@ -435,6 +458,61 @@ app.delete('/api/orders/:id', verifyToken, requireRole(['owner']), async (req, r
     await pool.query('DELETE FROM orders WHERE id = $1', [req.params.id]);
     res.json({ success: true });
   } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// ===================== CUSTOMER STATUS (no auth) =====================
+app.put('/api/orders/:id/customer-status', async (req, res) => {
+  const { status } = req.body;
+  if (status !== 'completed' && status !== 'cancelled') {
+    return res.status(400).json({ error: 'Invalid status for customer' });
+  }
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const orderResult = await client.query('SELECT status FROM orders WHERE id = $1', [req.params.id]);
+    if (orderResult.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Order not found' });
+    }
+    const oldStatus = orderResult.rows[0].status;
+
+    // Validate transitions
+    if (status === 'completed' && !['delivering', 'ready'].includes(oldStatus)) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'Cannot complete order from current status' });
+    }
+    if (status === 'cancelled' && oldStatus !== 'pending') {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'Can only cancel pending orders' });
+    }
+
+    const result = await client.query('UPDATE orders SET status = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2 RETURNING *', [status, req.params.id]);
+
+    // Deduct stock when completing
+    if (status === 'completed' && oldStatus !== 'completed') {
+      const itemsResult = await client.query('SELECT item_id, quantity FROM order_items WHERE order_id = $1', [req.params.id]);
+      for (const item of itemsResult.rows) {
+        if (item.item_id) {
+          await client.query('UPDATE items SET stock = stock - $1 WHERE id = $2 AND stock IS NOT NULL', [item.quantity, item.item_id]);
+        }
+      }
+    }
+    // Restore stock if cancelling a completed order (edge case)
+    else if (oldStatus === 'completed' && status !== 'completed') {
+      const itemsResult = await client.query('SELECT item_id, quantity FROM order_items WHERE order_id = $1', [req.params.id]);
+      for (const item of itemsResult.rows) {
+        if (item.item_id) {
+          await client.query('UPDATE items SET stock = stock + $1 WHERE id = $2 AND stock IS NOT NULL', [item.quantity, item.item_id]);
+        }
+      }
+    }
+
+    await client.query('COMMIT');
+    res.json(result.rows[0]);
+  } catch (err) {
+    await client.query('ROLLBACK');
+    res.status(500).json({ error: err.message });
+  } finally { client.release(); }
 });
 
 // ===================== QR CODE =====================

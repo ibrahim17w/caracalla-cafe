@@ -108,7 +108,19 @@
       <h2>تم إرسال طلبك بنجاح!</h2>
       <p style="color:var(--text-muted);margin:1rem 0;">رقم الطلب: <span id="successOrderId" style="font-weight:800;color:var(--primary);"></span></p>
       <p style="color:var(--text-muted);font-size:0.9rem;">سنبدأ بتجهيز طلبك فوراً</p>
+      <button class="btn btn-outline btn-block mt-1" onclick="showCustomerReceipt()">🧾 عرض الفاتورة</button>
       <button class="btn btn-primary btn-block mt-1" onclick="closeSuccess()">حسناً</button>
+    </div>
+  </div>
+
+  <!-- Customer Receipt Modal -->
+  <div class="modal-overlay hidden" id="customerReceiptModal">
+    <div class="modal" style="max-width:400px;">
+      <div id="customerReceiptContent"></div>
+      <div class="flex gap-1 mt-1">
+        <button class="btn btn-primary btn-block" onclick="printCustomerReceipt()">🖨️ طباعة</button>
+        <button class="btn" onclick="closeCustomerReceipt()" style="background:#eee;color:var(--text);">إغلاق</button>
+      </div>
     </div>
   </div>
 

@@ -393,6 +393,8 @@ async function submitOrder() {
     }
 
     const order = await res.json();
+    window.lastOrder = order;
+    window.lastOrderItems = cart.map(c => ({...c})); // save copy of cart items
 
     document.getElementById('successOrderId').textContent = '#' + order.id;
     document.getElementById('successModal').classList.remove('hidden');
@@ -402,6 +404,54 @@ async function submitOrder() {
   } catch (e) {
     alert('فشل إرسال الطلب: ' + e.message);
   }
+}
+
+function showCustomerReceipt() {
+  if (!window.lastOrder) return;
+  const order = window.lastOrder;
+  const items = window.lastOrderItems || [];
+  const cafeName = settings.cafe_name || 'كاراكالا كافيه';
+
+  let itemsHtml = '';
+  let total = 0;
+  items.forEach(it => {
+    let subtotal = it.price * it.quantity;
+    let addsHtml = '';
+    if (it.additions && it.additions.length > 0) {
+      it.additions.forEach(a => {
+        subtotal += a.price * it.quantity;
+        addsHtml += `<div style="padding-right:1rem;font-size:0.8rem;color:var(--text-muted);">+ ${a.name}</div>`;
+      });
+    }
+    total += subtotal;
+    itemsHtml += `<div style="display:flex;justify-content:space-between;margin-bottom:0.3rem;"><span>${it.name} × ${it.quantity}</span><span>${subtotal.toLocaleString('ar-SY')} ل.س</span></div>${addsHtml}`;
+  });
+
+  const receiptHtml = `
+    <div id="customerReceiptPrint" class="receipt">
+      <div class="receipt-header" style="text-align:center;">
+        <h3>${cafeName}</h3>
+      </div>
+      <div style="display:flex;justify-content:space-between;margin-bottom:0.3rem;font-size:0.9rem;"><span>رقم الطلب:</span><span>#${order.id}</span></div>
+      <div style="display:flex;justify-content:space-between;margin-bottom:0.3rem;font-size:0.9rem;"><span>التاريخ:</span><span>${new Date(order.created_at).toLocaleString('ar-SY')}</span></div>
+      <hr style="border:1px dashed var(--border);margin:0.5rem 0;">
+      ${itemsHtml}
+      <hr style="border:1px dashed var(--border);margin:0.5rem 0;">
+      <div style="display:flex;justify-content:space-between;font-weight:800;color:var(--primary);font-size:1.1rem;"><span>الإجمالي:</span><span>${total.toLocaleString('ar-SY')} ل.س</span></div>
+      <div style="text-align:center;margin-top:1rem;color:var(--text-muted);font-size:0.8rem;">شكراً لزيارتكم!</div>
+    </div>
+  `;
+
+  document.getElementById('customerReceiptContent').innerHTML = receiptHtml;
+  document.getElementById('customerReceiptModal').classList.remove('hidden');
+}
+
+function printCustomerReceipt() {
+  window.print();
+}
+
+function closeCustomerReceipt() {
+  document.getElementById('customerReceiptModal').classList.add('hidden');
 }
 
 function closeSuccess() {
@@ -561,32 +611,38 @@ async function trackOrder() {
 async function confirmReceived(orderId) {
   if (!confirm('هل أنت متأكد من استلام الطلب؟ بعد التأكيد لن يتمكن أحد من رؤية موقعك.')) return;
   try {
-    const res = await fetch(`${API}/orders/${orderId}/status`, {
+    const res = await fetch(`${API}/orders/${orderId}/customer-status`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ status: 'completed' })
     });
-    if (!res.ok) throw new Error('Failed');
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error || 'Failed');
+    }
     alert('تم تأكيد استلام الطلب!');
     trackOrder();
   } catch (e) {
-    alert('فشل تأكيد الاستلام');
+    alert('فشل تأكيد الاستلام: ' + e.message);
   }
 }
 
 async function cancelCustomerOrder(orderId) {
   if (!confirm('هل أنت متأكد من إلغاء الطلب؟')) return;
   try {
-    const res = await fetch(`${API}/orders/${orderId}/status`, {
+    const res = await fetch(`${API}/orders/${orderId}/customer-status`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ status: 'cancelled' })
     });
-    if (!res.ok) throw new Error('Failed');
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error || 'Failed');
+    }
     alert('تم إلغاء الطلب!');
     trackOrder();
   } catch (e) {
-    alert('فشل إلغاء الطلب');
+    alert('فشل إلغاء الطلب: ' + e.message);
   }
 }
 
@@ -615,6 +671,7 @@ function toggleTheme() {
 })();
 
 loadCart();
+updateCartUI();
 loadMenu();
 
 // Handle #track hash from splash screen
