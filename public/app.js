@@ -373,9 +373,21 @@ async function submitOrder() {
   };
 
   if (selectedOrderType === 'dine_in') {
-    payload.table_number = document.getElementById('tableNumber').value || null;
+    const tableNum = document.getElementById('tableNumber').value.trim();
+    if (!tableNum) {
+      showToast('يرجى إدخال رقم الطاولة 🪑', 'warning');
+      document.getElementById('tableNumber').focus();
+      return;
+    }
+    payload.table_number = tableNum;
   } else {
-    payload.phone = document.getElementById('phoneNumber').value || null;
+    const phone = document.getElementById('phoneNumber').value.trim();
+    if (!phone) {
+      showToast('يرجى إدخال رقم الهاتف 📞', 'warning');
+      document.getElementById('phoneNumber').focus();
+      return;
+    }
+    payload.phone = phone;
     payload.address_text = document.getElementById('addressText').value || null;
     if (customerLocation) {
       payload.latitude = customerLocation.lat;
@@ -668,11 +680,17 @@ function toggleTheme() {
   const next = current === 'light' ? 'dark' : 'light';
   document.documentElement.setAttribute('data-theme', next);
   localStorage.setItem('cafeTheme', next);
+  const icon = document.getElementById('themeIcon');
+  if (icon) icon.textContent = next === 'dark' ? '☀️' : '🌙';
 }
 
 (function initTheme() {
   const saved = localStorage.getItem('cafeTheme');
-  if (saved) document.documentElement.setAttribute('data-theme', saved);
+  if (saved) {
+    document.documentElement.setAttribute('data-theme', saved);
+    const icon = document.getElementById('themeIcon');
+    if (icon) icon.textContent = saved === 'dark' ? '☀️' : '🌙';
+  }
 })();
 
 loadCart();

@@ -11,7 +11,7 @@
   <nav>
     <h1><img id="cafeLogo" src="" class="logo-img" style="display:none;"><span id="cafeName">☕ كاراكالا كافيه</span></h1>
     <div class="links">
-      <a href="#" onclick="toggleTheme()">🌙/☀️</a>
+      <a href="#" onclick="toggleTheme()"><span id="themeIcon">🌙</span></a>
       <a href="#" onclick="showCafeLocation()">📍 موقع المقهى</a>
       <a href="#" onclick="showOrderStatus()">📋 حالة طلبي</a>
     </div>
@@ -118,7 +118,7 @@
     <div class="modal" style="max-width:400px;">
       <div id="customerReceiptContent"></div>
       <div class="flex gap-1 mt-1">
-        <button class="receipt-share-btn" onclick="shareReceipt('فاتورة كاراكالا', document.getElementById('customerReceiptContent').innerText)">📤 مشاركة / حفظ</button>
+        <button class="btn btn-primary btn-block" onclick="printCustomerReceipt()">📄 حفظ كـ PDF</button>
         <button class="btn" onclick="closeCustomerReceipt()" style="background:#eee;color:var(--text);">إغلاق</button>
       </div>
     </div>

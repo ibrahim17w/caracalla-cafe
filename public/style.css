@@ -753,6 +753,19 @@ input[type="file"] {
   background: #FFF8F0;
 }
 
+[data-theme="dark"] .category-row:hover {
+  border-color: var(--primary);
+  background: #3a322c;
+}
+
+[data-theme="dark"] .category-row:hover .cat-name {
+  color: var(--text);
+}
+
+[data-theme="dark"] .category-row:hover .drag-handle {
+  color: var(--primary-light);
+}
+
 .category-row.dragging {
   opacity: 0.5;
   cursor: grabbing;
@@ -834,7 +847,7 @@ input[type="file"] {
   .container { padding: 1rem; }
   nav { padding: 1rem; flex-direction: column; gap: 0.5rem; }
   nav .links a { margin: 0 0.6rem; }
-  .grid { grid-template-columns: 1fr; }
+  .grid { grid-template-columns: repeat(2, 1fr); }
   .cart-panel { flex-direction: column; gap: 0.5rem; padding: 0.8rem; }
   .login-box { padding: 2rem 1.5rem; }
   .order-type-select { flex-direction: column; }
@@ -860,8 +873,9 @@ input[type="file"] {
 /* ===== PRINT RECEIPT ===== */
 @media print {
   body * { visibility: hidden; }
-  #receiptPrint, #receiptPrint * { visibility: visible; }
-  #receiptPrint {
+  #receiptPrint, #receiptPrint *,
+  #customerReceiptPrint, #customerReceiptPrint * { visibility: visible; }
+  #receiptPrint, #customerReceiptPrint {
     position: absolute;
     left: 0;
     top: 0;

@@ -346,9 +346,15 @@ function toggleTheme() {
   const next = current === 'light' ? 'dark' : 'light';
   document.documentElement.setAttribute('data-theme', next);
   localStorage.setItem('cafeTheme', next);
+  const icon = document.getElementById('themeIcon');
+  if (icon) icon.textContent = next === 'dark' ? '☀️' : '🌙';
 }
 
 (function initTheme() {
   const saved = localStorage.getItem('cafeTheme');
-  if (saved) document.documentElement.setAttribute('data-theme', saved);
+  if (saved) {
+    document.documentElement.setAttribute('data-theme', saved);
+    const icon = document.getElementById('themeIcon');
+    if (icon) icon.textContent = saved === 'dark' ? '☀️' : '🌙';
+  }
 })();

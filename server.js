@@ -494,7 +494,7 @@ app.put('/api/orders/:id/customer-status', async (req, res) => {
 // ===================== QR CODE =====================
 app.get('/api/qrcode', async (req, res) => {
   try {
-    const url = req.query.url || `${req.protocol}://${req.get('host')}/menu.html`;
+    const url = req.query.url || `${req.protocol}://${req.get('host')}/menu`;
     const qrDataUrl = await QRCode.toDataURL(url);
     res.json({ qr: qrDataUrl, url });
   } catch (err) { res.status(500).json({ error: err.message }); }
@@ -548,12 +548,8 @@ app.get('/api/best-sellers', async (req, res) => {
 
 // Clean URLs (no .html) — must come after all API routes
 app.get('/menu', (req, res) => res.sendFile(path.join(__dirname, 'public', 'menu.html')));
-app.get('/owner', (req, res) => res.sendFile(path.join(__dirname, 'public', 'dashboard-k7m3p9.html')));
-app.get('/driver', (req, res) => res.sendFile(path.join(__dirname, 'public', 'portal-x4y8z2.html')));
 
 app.listen(PORT, () => {
   console.log(`Caracalla Cafe server running on port ${PORT}`);
-  console.log(`Owner dashboard: /owner`);
-  console.log(`Driver portal:   /driver`);
-  console.log(`Customer menu:   /menu`);
+  console.log(`Customer menu: /menu`);
 });

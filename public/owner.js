@@ -124,9 +124,7 @@ async function loadItems() {
 async function loadOrders() {
   const res = await fetch(`${API}/orders`, { headers: authHeaders() });
   const newOrders = await res.json();
-  const currentTab = document.querySelector('.tab.active');
-  const onOrdersTab = currentTab && currentTab.textContent.includes('الطلبات');
-  if (previousOrderCount !== null && newOrders.length > previousOrderCount && onOrdersTab) {
+  if (previousOrderCount !== null && newOrders.length > previousOrderCount) {
     playBeep();
     if (allSettings.order_notifications !== 'false') {
       showOrderNotificationPopup();
@@ -672,89 +670,114 @@ function renderOrders() {
     return;
   }
 
-  container.innerHTML = '';
-  allOrders.forEach(order => {
-    const card = document.createElement('div');
-    card.className = `order-card ${order.status}`;
+  const activeOrders = allOrders.filter(o => !['completed', 'cancelled'].includes(o.status));
+  const finishedOrders = allOrders.filter(o => ['completed', 'cancelled'].includes(o.status));
 
-    let locationBtn = '';
-    if (order.order_type === 'delivery' && order.latitude && order.longitude && order.status !== 'completed' && order.status !== 'cancelled') {
-      locationBtn = `<button class="btn btn-info btn-sm" onclick="showOrderMap(${order.latitude}, ${order.longitude}, '${order.address_text || ''}')">📍 عرض الموقع</button>`;
+  let html = '';
+
+  // Active orders section
+  if (activeOrders.length > 0) {
+    html += '<h3 style="color:var(--primary);margin:1.5rem 0 1rem;font-size:1.2rem;font-weight:800;">🔥 الطلبات النشطة (' + activeOrders.length + ')</h3>';
+    activeOrders.forEach(order => {
+      html += renderOrderCard(order);
+    });
+  }
+
+  // Finished orders section
+  if (finishedOrders.length > 0) {
+    html += '<h3 style="color:var(--text-muted);margin:2rem 0 1rem;font-size:1.2rem;font-weight:800;border-top:2px dashed var(--border);padding-top:1.5rem;">✔️ الطلبات المنتهية (' + finishedOrders.length + ')</h3>';
+    finishedOrders.forEach(order => {
+      html += renderOrderCard(order);
+    });
+  }
+
+  container.innerHTML = html;
+}
+
+function renderOrderCard(order) {
+  const card = document.createElement('div');
+  card.className = `order-card ${order.status}`;
+
+  let locationBtn = '';
+  if (order.order_type === 'delivery' && order.latitude && order.longitude && order.status !== 'completed' && order.status !== 'cancelled') {
+    locationBtn = `<button class="btn btn-info btn-sm" onclick="showOrderMap(${order.latitude}, ${order.longitude}, '${order.address_text || ''}')">📍 عرض الموقع</button>`;
+  }
+
+  const typeLabel = order.order_type === 'delivery' ? '🛵 توصيل' : '🍽️ داخل المقهى';
+
+  let metaLines = '';
+  if (order.customer_name) metaLines += `<span class="meta-line"><span class="meta-label">الاسم:</span> ${order.customer_name}</span>`;
+  metaLines += `<span class="meta-line"><span class="meta-label">نوع الطلب:</span> ${typeLabel}</span>`;
+  if (order.table_number) metaLines += `<span class="meta-line"><span class="meta-label">رقم الطاولة:</span> ${order.table_number}</span>`;
+  if (order.phone) metaLines += `<span class="meta-line"><span class="meta-label">الهاتف:</span> <a href="tel:${order.phone}">${order.phone}</a></span>`;
+  if (order.address_text) metaLines += `<span class="meta-line"><span class="meta-label">العنوان:</span> ${order.address_text}</span>`;
+  metaLines += `<span class="meta-line"><span class="meta-label">الوقت:</span> ${formatTime(order.created_at)}</span>`;
+
+  let actions = '';
+  if (order.status === 'pending') {
+    actions = `<button class="btn btn-info" onclick="updateOrderStatus(${order.id}, 'preparing')">ابدأ التحضير</button>`;
+  } else if (order.status === 'preparing') {
+    actions = `<button class="btn btn-success" onclick="updateOrderStatus(${order.id}, 'ready')">جاهز للتسليم</button>`;
+  } else if (order.status === 'ready') {
+    if (order.order_type === 'delivery') {
+      actions = `<button class="btn btn-primary" onclick="updateOrderStatus(${order.id}, 'delivering')">🛵 إرسال للتوصيل</button>`;
+    } else {
+      actions = `<button class="btn btn-primary" onclick="updateOrderStatus(${order.id}, 'completed')">تم الدفع والتسليم</button>`;
     }
+  } else if (order.status === 'delivering') {
+    actions = `<button class="btn btn-primary" onclick="updateOrderStatus(${order.id}, 'completed')">تم التسليم</button>`;
+  }
 
-    const typeLabel = order.order_type === 'delivery' ? '🛵 توصيل' : '🍽️ داخل المقهى';
+  let cancelBtn = '';
+  if (order.status === 'pending' || order.status === 'preparing') {
+    cancelBtn = `<button class="btn btn-danger btn-sm" onclick="cancelOrder(${order.id})">إلغاء</button>`;
+  }
 
-    let metaLines = '';
-    if (order.customer_name) metaLines += `<span class="meta-line"><span class="meta-label">الاسم:</span> ${order.customer_name}</span>`;
-    metaLines += `<span class="meta-line"><span class="meta-label">نوع الطلب:</span> ${typeLabel}</span>`;
-    if (order.table_number) metaLines += `<span class="meta-line"><span class="meta-label">رقم الطاولة:</span> ${order.table_number}</span>`;
-    if (order.phone) metaLines += `<span class="meta-line"><span class="meta-label">الهاتف:</span> <a href="tel:${order.phone}">${order.phone}</a></span>`;
-    if (order.address_text) metaLines += `<span class="meta-line"><span class="meta-label">العنوان:</span> ${order.address_text}</span>`;
-    metaLines += `<span class="meta-line"><span class="meta-label">الوقت:</span> ${formatTime(order.created_at)}</span>`;
+  let deleteBtn = `<button class="btn btn-danger btn-sm" onclick="deleteOrder(${order.id})">🗑️ حذف</button>`;
+  let receiptBtn = `<button class="btn btn-outline btn-sm" onclick="generateReceipt(${order.id})">🧾 فاتورة</button>`;
+  let kitchenBtn = `<button class="btn btn-outline btn-sm" onclick="printKitchenTicket(${order.id})">🧾 مطبخ</button>`;
+  let editBtn = `<button class="btn btn-warning btn-sm" onclick="editOrder(${order.id})">✏️ تعديل</button>`;
 
-    let actions = '';
-    if (order.status === 'pending') {
-      actions = `<button class="btn btn-info" onclick="updateOrderStatus(${order.id}, 'preparing')">ابدأ التحضير</button>`;
-    } else if (order.status === 'preparing') {
-      actions = `<button class="btn btn-success" onclick="updateOrderStatus(${order.id}, 'ready')">جاهز للتسليم</button>`;
-    } else if (order.status === 'ready') {
-      if (order.order_type === 'delivery') {
-        actions = `<button class="btn btn-primary" onclick="updateOrderStatus(${order.id}, 'delivering')">🛵 إرسال للتوصيل</button>`;
-      } else {
-        actions = `<button class="btn btn-primary" onclick="updateOrderStatus(${order.id}, 'completed')">تم الدفع والتسليم</button>`;
-      }
-    } else if (order.status === 'delivering') {
-      actions = `<button class="btn btn-primary" onclick="updateOrderStatus(${order.id}, 'completed')">تم التسليم</button>`;
-    }
+  // For finished orders, simplify actions
+  let cardActions = '';
+  if (['completed', 'cancelled'].includes(order.status)) {
+    cardActions = `${receiptBtn} ${deleteBtn}`;
+  } else {
+    cardActions = `${actions} ${cancelBtn} ${editBtn} ${receiptBtn} ${kitchenBtn} ${deleteBtn}`;
+  }
 
-    let cancelBtn = '';
-    if (order.status === 'pending' || order.status === 'preparing') {
-      cancelBtn = `<button class="btn btn-danger btn-sm" onclick="cancelOrder(${order.id})">إلغاء</button>`;
-    }
-
-    let deleteBtn = `<button class="btn btn-danger btn-sm" onclick="deleteOrder(${order.id})">🗑️ حذف</button>`;
-    let receiptBtn = `<button class="btn btn-outline btn-sm" onclick="generateReceipt(${order.id})">🧾 فاتورة</button>`;
-    let kitchenBtn = `<button class="btn btn-outline btn-sm" onclick="printKitchenTicket(${order.id})">🧾 مطبخ</button>`;
-    let editBtn = `<button class="btn btn-warning btn-sm" onclick="editOrder(${order.id})">✏️ تعديل</button>`;
-
-    card.innerHTML = `
-      <div class="order-header">
-        <div class="order-title">
-          <strong style="font-size:1.1rem;">طلب #${order.id}</strong>
-          <span class="badge badge-${order.status}">${getStatusLabel(order.status)}</span>
+  card.innerHTML = `
+    <div class="order-header">
+      <div class="order-title">
+        <strong style="font-size:1.1rem;">طلب #${order.id}</strong>
+        <span class="badge badge-${order.status}">${getStatusLabel(order.status)}</span>
+      </div>
+      <div class="order-meta">${metaLines}</div>
+    </div>
+    <div class="order-items">
+      ${order.items.map(it => `
+        <div class="order-item-line">
+          <strong>${it.item_name} × ${it.quantity}</strong> - ${formatPrice(it.subtotal)}
+          ${it.additions && it.additions.length > 0 ? `
+            <div class="order-item-additions">
+              ${it.additions.map(a => `+ ${a.addition_name} (${formatPrice(a.addition_price)})`).join('<br>')}
+            </div>
+          ` : ''}
         </div>
-        <div class="order-meta">${metaLines}</div>
+      `).join('')}
+    </div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:1rem;">
+      <div>${locationBtn}</div>
+      <div style="font-size:1.3rem;font-weight:800;color:var(--primary);">
+        الإجمالي: ${formatPrice(order.total_amount)}
       </div>
-      <div class="order-items">
-        ${order.items.map(it => `
-          <div class="order-item-line">
-            <strong>${it.item_name} × ${it.quantity}</strong> - ${formatPrice(it.subtotal)}
-            ${it.additions && it.additions.length > 0 ? `
-              <div class="order-item-additions">
-                ${it.additions.map(a => `+ ${a.addition_name} (${formatPrice(a.addition_price)})`).join('<br>')}
-              </div>
-            ` : ''}
-          </div>
-        `).join('')}
-      </div>
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:1rem;">
-        <div>${locationBtn}</div>
-        <div style="font-size:1.3rem;font-weight:800;color:var(--primary);">
-          الإجمالي: ${formatPrice(order.total_amount)}
-        </div>
-      </div>
-      <div class="order-actions">
-        ${actions}
-        ${cancelBtn}
-        ${editBtn}
-        ${receiptBtn}
-        ${kitchenBtn}
-        ${deleteBtn}
-      </div>
-      ${order.notes ? `<div style="border:2px solid var(--danger);color:var(--danger);font-size:1rem;margin-top:0.5rem;background:#fff0f0;padding:0.5rem;border-radius:6px;font-weight:700;">📌 ملاحظة: ${order.notes}</div>` : ''}
-    `;
-    container.appendChild(card);
-  });
+    </div>
+    <div class="order-actions" style="flex-wrap:wrap;gap:0.5rem;">
+      ${cardActions}
+    </div>
+    ${order.notes ? `<div style="border:2px solid var(--danger);color:var(--danger);font-size:1rem;margin-top:0.5rem;background:#fff0f0;padding:0.5rem;border-radius:6px;font-weight:700;">📌 ملاحظة: ${order.notes}</div>` : ''}
+  `;
+  return card.outerHTML;
 }
 
 async function updateOrderStatus(orderId, status) {
@@ -1080,9 +1103,15 @@ function toggleTheme() {
   const next = current === 'light' ? 'dark' : 'light';
   document.documentElement.setAttribute('data-theme', next);
   localStorage.setItem('cafeTheme', next);
+  const icon = document.getElementById('themeIcon');
+  if (icon) icon.textContent = next === 'dark' ? '☀️' : '🌙';
 }
 
 (function initTheme() {
   const saved = localStorage.getItem('cafeTheme');
-  if (saved) document.documentElement.setAttribute('data-theme', saved);
+  if (saved) {
+    document.documentElement.setAttribute('data-theme', saved);
+    const icon = document.getElementById('themeIcon');
+    if (icon) icon.textContent = saved === 'dark' ? '☀️' : '🌙';
+  }
 })();
