@@ -28,22 +28,9 @@ if (process.env.DATABASE_URL) {
 
 const os = require('os');
 
-// Multer config — store in temp dir, convert to Base64, then delete
-const tmpDir = path.join(os.tmpdir(), 'caracalla-uploads');
-if (!fs.existsSync(tmpDir)) fs.mkdirSync(tmpDir, { recursive: true });
-
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, tmpDir);
-  },
-  filename: (req, file, cb) => {
-    const unique = Date.now() + '-' + Math.round(Math.random() * 1e9);
-    const ext = path.extname(file.originalname);
-    cb(null, 'item-' + unique + ext);
-  }
-});
+// Multer — store in memory, convert to Base64 data URL
 const upload = multer({
-  storage,
+  storage: multer.memoryStorage(),
   limits: { fileSize: 5 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
     const allowed = ['image/jpeg', 'image/png', 'image/webp', 'image/jpg'];
@@ -174,15 +161,10 @@ app.delete('/api/settings/:key', verifyToken, requireRole(['owner']), async (req
 app.post('/api/upload', verifyToken, requireRole(['owner']), upload.single('image'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
   try {
-    // Read file and convert to Base64 data URL
-    const fileBuffer = fs.readFileSync(req.file.path);
-    const base64 = fileBuffer.toString('base64');
+    const base64 = req.file.buffer.toString('base64');
     const dataUrl = `data:${req.file.mimetype};base64,${base64}`;
-    // Clean up temp file
-    fs.unlinkSync(req.file.path);
     res.json({ path: dataUrl });
   } catch (err) {
-    if (fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
     res.status(500).json({ error: err.message });
   }
 });
@@ -254,10 +236,8 @@ app.post('/api/items', verifyToken, requireRole(['owner']), upload.single('image
   let imagePath = null;
   if (req.file) {
     try {
-      const fileBuffer = fs.readFileSync(req.file.path);
-      const base64 = fileBuffer.toString('base64');
+      const base64 = req.file.buffer.toString('base64');
       imagePath = `data:${req.file.mimetype};base64,${base64}`;
-      fs.unlinkSync(req.file.path);
     } catch (e) { imagePath = null; }
   }
   const client = await pool.connect();
@@ -280,7 +260,6 @@ app.post('/api/items', verifyToken, requireRole(['owner']), upload.single('image
     res.json(item);
   } catch (err) {
     await client.query('ROLLBACK');
-    if (req.file && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
     res.status(500).json({ error: err.message });
   } finally { client.release(); }
 });
@@ -305,10 +284,8 @@ app.put('/api/items/:id', verifyToken, requireRole(['owner']), upload.single('im
     let imagePath = oldImage;
     if (req.file) {
       try {
-        const fileBuffer = fs.readFileSync(req.file.path);
-        const base64 = fileBuffer.toString('base64');
+        const base64 = req.file.buffer.toString('base64');
         imagePath = `data:${req.file.mimetype};base64,${base64}`;
-        fs.unlinkSync(req.file.path);
       } catch (e) { imagePath = oldImage; }
     }
     const itemResult = await client.query(
@@ -326,7 +303,6 @@ app.put('/api/items/:id', verifyToken, requireRole(['owner']), upload.single('im
     res.json(itemResult.rows[0]);
   } catch (err) {
     await client.query('ROLLBACK');
-    if (req.file && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
     res.status(500).json({ error: err.message });
   } finally { client.release(); }
 });
@@ -570,9 +546,14 @@ app.get('/api/best-sellers', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+// Clean URLs (no .html) — must come after all API routes
+app.get('/menu', (req, res) => res.sendFile(path.join(__dirname, 'public', 'menu.html')));
+app.get('/owner', (req, res) => res.sendFile(path.join(__dirname, 'public', 'dashboard-k7m3p9.html')));
+app.get('/driver', (req, res) => res.sendFile(path.join(__dirname, 'public', 'portal-x4y8z2.html')));
+
 app.listen(PORT, () => {
-  console.log(`Caracalla Cafe server running on http://localhost:${PORT}`);
-  console.log(`Owner dashboard: http://localhost:${PORT}/owner.html`);
-  console.log(`Driver portal:   http://localhost:${PORT}/driver.html`);
-  console.log(`Customer menu:   http://localhost:${PORT}/menu.html`);
+  console.log(`Caracalla Cafe server running on port ${PORT}`);
+  console.log(`Owner dashboard: /owner`);
+  console.log(`Driver portal:   /driver`);
+  console.log(`Customer menu:   /menu`);
 });

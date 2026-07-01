@@ -31,7 +31,7 @@
       <h1><img id="navLogo" src="" class="logo-img" style="display:none;"><span id="navTitle">☕ كاراكالا كافيه</span></h1>
       <div class="links">
         <a href="#" onclick="toggleTheme()">🌙/☀️</a>
-        <a href="menu.html" target="_blank">القائمة</a>
+        <a href="/menu" target="_blank">القائمة</a>
         <a href="portal-x4y8z2.html" target="_blank">السائق</a>
         <a href="#" onclick="logout()">خروج</a>
       </div>
@@ -253,6 +253,19 @@
       <h2>موقع التوصيل</h2>
       <div class="map-container" id="orderMap" style="height:350px;"></div>
       <button class="btn btn-primary btn-block mt-1" onclick="closeMapModal()">إغلاق</button>
+    </div>
+  </div>
+
+  <!-- New Order Notification Modal -->
+  <div class="modal-overlay hidden" id="orderNotificationModal">
+    <div class="modal text-center" style="max-width:400px;">
+      <div style="font-size:3rem;margin-bottom:0.5rem;">🔔</div>
+      <h2>طلب جديد!</h2>
+      <p style="color:var(--text-muted);margin:0.5rem 0;">لقد وصل طلب جديد</p>
+      <div class="flex gap-1 mt-1" style="flex-direction:column;">
+        <button class="btn btn-primary btn-block" onclick="processNewOrder()">📋 معالجة الطلب</button>
+        <button class="btn btn-outline btn-block" onclick="skipOrderNotification()">⏭️ تخطي</button>
+      </div>
     </div>
   </div>
 

@@ -24,7 +24,7 @@ CREATE TABLE IF NOT EXISTS items (
     description TEXT,
     price DECIMAL(10,2) NOT NULL DEFAULT 0,
     stock INTEGER DEFAULT NULL,
-    image_path VARCHAR(500),
+    image_path TEXT,
     is_available BOOLEAN DEFAULT true,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );

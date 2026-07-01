@@ -200,7 +200,7 @@ function generateQR() {
 function generateTableQR() {
   const tableNum = document.getElementById('tableQrInput').value;
   if (!tableNum) return alert('أدخل رقم الطاولة');
-  const tableUrl = window.location.origin + '/menu.html?table=' + encodeURIComponent(tableNum);
+  const tableUrl = window.location.origin + '/menu?table=' + encodeURIComponent(tableNum);
   const container = document.getElementById('tableQrResult');
   container.innerHTML = '<p style="color:var(--text-muted);font-size:0.8rem;">جاري إنشاء الرمز...</p>';
   fetch(`${API}/qrcode?url=${encodeURIComponent(tableUrl)}`)
@@ -456,13 +456,16 @@ async function updateItem() {
       headers: authHeaders(),
       body: formData
     });
-    if (!res.ok) throw new Error('Failed');
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error || 'Failed');
+    }
     alert('تم التحديث!');
     closeEditModal();
     await loadItems();
     renderItems();
   } catch (e) {
-    alert('فشل التحديث');
+    alert('فشل التحديث: ' + e.message);
   }
 }
 
@@ -854,7 +857,7 @@ async function generateReceipt(orderId) {
   // Generate QR code via server API
   let qrDataUrl = '';
   try {
-    const qrRes = await fetch(`${API}/qrcode?url=${encodeURIComponent(window.location.origin + '/menu.html')}`);
+    const qrRes = await fetch(`${API}/qrcode?url=${encodeURIComponent(window.location.origin + '/menu')}`);
     if (qrRes.ok) {
       const qrData = await qrRes.json();
       qrDataUrl = qrData.qr;
