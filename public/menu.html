@@ -118,7 +118,7 @@
     <div class="modal" style="max-width:400px;">
       <div id="customerReceiptContent"></div>
       <div class="flex gap-1 mt-1">
-        <button class="btn btn-primary btn-block" onclick="printCustomerReceipt()">🖨️ طباعة</button>
+        <button class="receipt-share-btn" onclick="shareReceipt('فاتورة كاراكالا', document.getElementById('customerReceiptContent').innerText)">📤 مشاركة / حفظ</button>
         <button class="btn" onclick="closeCustomerReceipt()" style="background:#eee;color:var(--text);">إغلاق</button>
       </div>
     </div>
@@ -152,6 +152,7 @@
   </div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="notifications.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

@@ -134,6 +134,7 @@
 
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="notifications.js"></script>
   <script>
     const API = window.location.origin + '/api';
     let splashMap = null;
@@ -173,7 +174,7 @@
 
     function showLocation() {
       if (!cafeLocation) {
-        alert('لم يتم تحديد موقع المقهى بعد');
+        showToast('لم يتم تحديد موقع المقهى بعد 📍', 'warning');
         return;
       }
       document.getElementById('locationModal').classList.remove('hidden');
@@ -201,7 +202,7 @@
     function getSplashCurrentLocation() {
       if (!splashMap) return;
       if (!navigator.geolocation) {
-        alert('المتصفح لا يدعم تحديد الموقع');
+        showToast('المتصفح لا يدعم تحديد الموقع 📍', 'error');
         return;
       }
       navigator.geolocation.getCurrentPosition(
@@ -216,7 +217,7 @@
             document.getElementById('splashDistance').textContent = `المسافة: ${dist.toFixed(1)} كم`;
           }
         },
-        () => alert('تعذر الحصول على الموقع')
+        () => showToast('تعذر الحصول على الموقع 📍', 'error')
       );
     }
 

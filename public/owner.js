@@ -128,6 +128,9 @@ async function loadOrders() {
   const onOrdersTab = currentTab && currentTab.textContent.includes('الطلبات');
   if (previousOrderCount !== null && newOrders.length > previousOrderCount && onOrdersTab) {
     playBeep();
+    if (allSettings.order_notifications !== 'false') {
+      showOrderNotificationPopup();
+    }
   }
   previousOrderCount = newOrders.length;
   allOrders = newOrders;
@@ -165,6 +168,11 @@ function applySettings() {
   } else {
     initCafeSettingMap(33.5138, 36.2765);
   }
+  // Order notifications toggle
+  const notifToggle = document.getElementById('setOrderNotifications');
+  if (notifToggle) {
+    notifToggle.checked = allSettings.order_notifications !== 'false';
+  }
   renderReceiptFields();
 }
 
@@ -199,7 +207,7 @@ function generateQR() {
 
 function generateTableQR() {
   const tableNum = document.getElementById('tableQrInput').value;
-  if (!tableNum) return alert('أدخل رقم الطاولة');
+  if (!tableNum) return showToast('أدخل رقم الطاولة أولاً 🪑', 'warning');
   const tableUrl = window.location.origin + '/menu?table=' + encodeURIComponent(tableNum);
   const container = document.getElementById('tableQrResult');
   container.innerHTML = '<p style="color:var(--text-muted);font-size:0.8rem;">جاري إنشاء الرمز...</p>';
@@ -224,7 +232,7 @@ function shareQR() {
   if (navigator.share) {
     navigator.share({ title: cafeName, text: text, url: url });
   } else {
-    navigator.clipboard.writeText(text).then(() => alert('تم نسخ الرابط!'));
+    navigator.clipboard.writeText(text).then(() => showToast('تم نسخ الرابط إلى الحافظة 📋', 'success'));
   }
 }
 
@@ -369,7 +377,7 @@ async function saveItem() {
   if (imageFile) formData.append('image', imageFile);
 
   if (!formData.get('name') || !formData.get('price')) {
-    alert('الاسم والسعر مطلوبان');
+    showToast('الاسم والسعر مطلوبان ⚠️', 'warning');
     return;
   }
 
@@ -381,7 +389,7 @@ async function saveItem() {
     });
     if (!res.ok) throw new Error('Failed');
 
-    alert('تم إضافة الصنف!');
+    showToast('تم إضافة الصنف بنجاح! ✅', 'success');
     document.getElementById('newName').value = '';
     document.getElementById('newDesc').value = '';
     document.getElementById('newPrice').value = '';
@@ -392,7 +400,7 @@ async function saveItem() {
     await loadItems();
     renderItems();
   } catch (e) {
-    alert('فشل إضافة الصنف');
+    showToast('تعذر إضافة الصنف، حاول مرة أخرى ❌', 'error');
   }
 }
 
@@ -460,17 +468,18 @@ async function updateItem() {
       const err = await res.json();
       throw new Error(err.error || 'Failed');
     }
-    alert('تم التحديث!');
+    showToast('تم تحديث الصنف بنجاح! ✅', 'success');
     closeEditModal();
     await loadItems();
     renderItems();
   } catch (e) {
-    alert('فشل التحديث: ' + e.message);
+    showToast('تعذر تحديث الصنف، حاول مرة أخرى ❌', 'error');
   }
 }
 
 async function deleteItem() {
-  if (!confirm('هل أنت متأكد من حذف هذا الصنف؟ سيتم حذف الصورة والإضافات أيضاً.')) return;
+  const confirmed = await showConfirm('هل أنت متأكد من الحذف؟ لا يمكن التراجع.', 'تأكيد الحذف', '🗑️');
+  if (!confirmed) return;
   const id = document.getElementById('editId').value;
   try {
     const res = await fetch(`${API}/items/${id}`, {
@@ -482,7 +491,7 @@ async function deleteItem() {
     await loadItems();
     renderItems();
   } catch (e) {
-    alert('فشل الحذف');
+    showToast('تعذر حذف الصنف، حاول مرة أخرى ❌', 'error');
   }
 }
 
@@ -496,7 +505,7 @@ async function toggleItemAvailability(id) {
     await loadItems();
     renderItems();
   } catch (e) {
-    alert('فشل تغيير التوفر');
+    showToast('تعذر تغيير حالة التوفر ❌', 'error');
   }
 }
 
@@ -565,7 +574,7 @@ function printKitchenTicket(orderId) {
 // ===================== CATEGORIES =====================
 async function addCategory() {
   const name = document.getElementById('newCatName').value.trim();
-  if (!name) return alert('اسم القسم مطلوب');
+  if (!name) return showToast('اسم القسم مطلوب ⚠️', 'warning');
 
   try {
     const res = await fetch(`${API}/categories`, {
@@ -579,12 +588,13 @@ async function addCategory() {
     renderCategories();
     populateCategorySelects();
   } catch (e) {
-    alert('فشل إضافة القسم');
+    showToast('تعذر إضافة القسم، حاول مرة أخرى ❌', 'error');
   }
 }
 
 async function deleteCategory(id) {
-  if (!confirm('حذف القسم؟ سيتم إزالة الأصناف من هذا القسم (لن يتم حذفها).')) return;
+  const confirmed = await showConfirm('هل أنت متأكد من حذف هذا القسم؟', 'تأكيد الحذف', '🗑️');
+  if (!confirmed) return;
   try {
     await fetch(`${API}/categories/${id}`, {
       method: 'DELETE',
@@ -596,7 +606,7 @@ async function deleteCategory(id) {
     await loadItems();
     renderItems();
   } catch (e) {
-    alert('فشل الحذف');
+    showToast('تعذر حذف القسم، حاول مرة أخرى ❌', 'error');
   }
 }
 
@@ -756,11 +766,12 @@ async function updateOrderStatus(orderId, status) {
     });
     loadOrders().then(renderOrders);
     loadStats();
-  } catch (e) { alert('فشل تحديث الحالة'); }
+  } catch (e) { showToast('تعذر تحديث حالة الطلب ❌', 'error'); }
 }
 
 async function cancelOrder(orderId) {
-  if (!confirm('إلغاء هذا الطلب؟')) return;
+  const confirmed = await showConfirm('هل تريد إلغاء هذا الطلب؟', 'تأكيد الإلغاء', '❌');
+  if (!confirmed) return;
   try {
     await fetch(`${API}/orders/${orderId}/status`, {
       method: 'PUT',
@@ -769,11 +780,12 @@ async function cancelOrder(orderId) {
     });
     loadOrders().then(renderOrders);
     loadStats();
-  } catch (e) { alert('فشل الإلغاء'); }
+  } catch (e) { showToast('تعذر إلغاء الطلب ❌', 'error'); }
 }
 
 async function deleteOrder(orderId) {
-  if (!confirm('حذف هذا الطلب نهائياً؟ لا يمكن التراجع.')) return;
+  const confirmed = await showConfirm('هل أنت متأكد من حذف هذا الطلب؟ لا يمكن التراجع.', 'تأكيد الحذف', '🗑️');
+  if (!confirmed) return;
   try {
     await fetch(`${API}/orders/${orderId}`, {
       method: 'DELETE',
@@ -781,7 +793,7 @@ async function deleteOrder(orderId) {
     });
     loadOrders().then(renderOrders);
     loadStats();
-  } catch (e) { alert('فشل الحذف'); }
+  } catch (e) { showToast('تعذر حذف الطلب ❌', 'error'); }
 }
 
 function editOrder(orderId) {
@@ -803,7 +815,7 @@ function editOrder(orderId) {
     headers: { ...authHeaders(), 'Content-Type': 'application/json' },
     body: JSON.stringify({ status: order.status }) // Keep same status, update other fields
   }).then(() => {
-    alert('تم التعديل! (ملاحظة: يجب إضافة endpoint تعديل كامل للطلب)');
+    showToast('تم التعديل! (ملاحظة: يجب إضافة endpoint تعديل كامل للطلب) ⚠️', 'warning');
     loadOrders().then(renderOrders);
   });
 }
@@ -915,7 +927,7 @@ function initCafeSettingMap(lat, lng) {
 
 function getCafeCurrentLocation() {
   if (!navigator.geolocation) {
-    alert('المتصفح لا يدعم تحديد الموقع');
+    showToast('المتصفح لا يدعم تحديد الموقع 📍', 'error');
     return;
   }
   navigator.geolocation.getCurrentPosition(
@@ -924,7 +936,7 @@ function getCafeCurrentLocation() {
       const lng = pos.coords.longitude;
       initCafeSettingMap(lat, lng);
     },
-    () => alert('تعذر الحصول على الموقع')
+    () => showToast('تعذر الحصول على الموقع 📍', 'error')
   );
 }
 
@@ -962,6 +974,11 @@ async function saveSettings() {
     settings.push({ key: 'cafe_lng', value: String(latlng.lng) });
   }
 
+  const notifToggle = document.getElementById('setOrderNotifications');
+  if (notifToggle) {
+    settings.push({ key: 'order_notifications', value: notifToggle.checked ? 'true' : 'false' });
+  }
+
   for (const s of settings) {
     await fetch(`${API}/settings`, {
       method: 'POST',
@@ -970,7 +987,7 @@ async function saveSettings() {
     });
   }
 
-  alert('تم حفظ الإعدادات!');
+  showToast('تم حفظ الإعدادات بنجاح! ✅', 'success');
   await loadSettings();
   applySettings();
 }
@@ -978,7 +995,7 @@ async function saveSettings() {
 function addReceiptField() {
   const container = document.getElementById('receiptCustomFields');
   const count = container.querySelectorAll('.receipt-field-row').length + 1;
-  if (count > 10) { alert('الحد الأقصى 10 حقول'); return; }
+  if (count > 10) { showToast('الحد الأقصى 10 حقول مخصصة ⚠️', 'warning'); return; }
 
   const row = document.createElement('div');
   row.className = 'flex gap-1 align-center receipt-field-row mt-1';
@@ -1044,7 +1061,7 @@ async function saveReceiptSettings() {
     body: JSON.stringify({ key: 'receipt_footer', value: document.getElementById('setReceiptFooter').value })
   });
 
-  alert('تم حفظ إعدادات الفاتورة!');
+  showToast('تم حفظ إعدادات الفاتورة بنجاح! ✅', 'success');
   await loadSettings();
 }
 

@@ -215,7 +215,10 @@ function updateCartUI() {
 }
 
 function openCheckout() {
-  if (cart.length === 0) return alert('السلة فارغة!');
+  if (cart.length === 0) {
+  showToast('السلة فارغة، أضف بعض الأصناف أولاً 🛒', 'warning');
+  return;
+}
 
   const container = document.getElementById('checkoutItems');
   container.innerHTML = '';
@@ -306,7 +309,7 @@ function initDeliveryMap() {
 
 function getCurrentLocation() {
   if (!navigator.geolocation) {
-    alert('المتصفح لا يدعم تحديد الموقع');
+    showToast('المتصفح لا يدعم تحديد الموقع 📍', 'error');
     return;
   }
   navigator.geolocation.getCurrentPosition(
@@ -321,7 +324,7 @@ function getCurrentLocation() {
         showDeliveryDistance();
       }
     },
-    () => alert('تعذر الحصول على الموقع، يرجى النقر على الخريطة يدوياً')
+    () => showToast('تعذر الحصول على الموقع، يرجى النقر على الخريطة يدوياً 📍', 'error')
   );
 }
 
@@ -402,7 +405,7 @@ async function submitOrder() {
     clearCart();
     closeCheckout();
   } catch (e) {
-    alert('فشل إرسال الطلب: ' + e.message);
+    showToast('تعذر إرسال الطلب، يرجى المحاولة لاحقاً ❌', 'error');
   }
 }
 
@@ -461,7 +464,7 @@ function closeSuccess() {
 // ===================== CAFE LOCATION =====================
 function showCafeLocation() {
   if (!cafeLocation) {
-    alert('لم يتم تحديد موقع المقهى بعد');
+    showToast('لم يتم تحديد موقع المقهى بعد 📍', 'warning');
     return;
   }
   document.getElementById('cafeLocationModal').classList.remove('hidden');
@@ -491,7 +494,7 @@ function showCafeLocation() {
 function getCafeCurrentLocation() {
   if (!cafeMap) return;
   if (!navigator.geolocation) {
-    alert('المتصفح لا يدعم تحديد الموقع');
+    showToast('المتصفح لا يدعم تحديد الموقع 📍', 'error');
     return;
   }
   navigator.geolocation.getCurrentPosition(
@@ -506,7 +509,7 @@ function getCafeCurrentLocation() {
         document.getElementById('cafeDistance').textContent = `المسافة: ${dist.toFixed(1)} كم`;
       }
     },
-    () => alert('تعذر الحصول على الموقع')
+    () => showToast('تعذر الحصول على الموقع 📍', 'error')
   );
 }
 
@@ -609,7 +612,8 @@ async function trackOrder() {
 }
 
 async function confirmReceived(orderId) {
-  if (!confirm('هل أنت متأكد من استلام الطلب؟ بعد التأكيد لن يتمكن أحد من رؤية موقعك.')) return;
+  const confirmed = await showConfirm('هل أنت متأكد من استلام الطلب؟ بعد التأكيد لن يتمكن أحد من رؤية موقعك.', 'تأكيد الاستلام', '✅');
+  if (!confirmed) return;
   try {
     const res = await fetch(`${API}/orders/${orderId}/customer-status`, {
       method: 'PUT',
@@ -620,15 +624,16 @@ async function confirmReceived(orderId) {
       const err = await res.json();
       throw new Error(err.error || 'Failed');
     }
-    alert('تم تأكيد استلام الطلب!');
+    showToast('تم تأكيد استلام الطلب بنجاح! ✅', 'success');
     trackOrder();
   } catch (e) {
-    alert('فشل تأكيد الاستلام: ' + e.message);
+    showToast('تعذر تأكيد الاستلام، حاول مرة أخرى ❌', 'error');
   }
 }
 
 async function cancelCustomerOrder(orderId) {
-  if (!confirm('هل أنت متأكد من إلغاء الطلب؟')) return;
+  const confirmed = await showConfirm('هل تريد إلغاء هذا الطلب؟', 'تأكيد الإلغاء', '❌');
+  if (!confirmed) return;
   try {
     const res = await fetch(`${API}/orders/${orderId}/customer-status`, {
       method: 'PUT',
@@ -639,10 +644,10 @@ async function cancelCustomerOrder(orderId) {
       const err = await res.json();
       throw new Error(err.error || 'Failed');
     }
-    alert('تم إلغاء الطلب!');
+    showToast('تم إلغاء الطلب بنجاح ✅', 'success');
     trackOrder();
   } catch (e) {
-    alert('فشل إلغاء الطلب: ' + e.message);
+    showToast('تعذر إلغاء الطلب، حاول مرة أخرى ❌', 'error');
   }
 }
 

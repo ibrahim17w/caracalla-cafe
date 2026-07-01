@@ -868,3 +868,199 @@ input[type="file"] {
     width: 100%;
   }
 }
+
+/* ===== TOAST NOTIFICATIONS ===== */
+.toast-container {
+  position: fixed;
+  top: 1rem;
+  left: 1rem;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  pointer-events: none;
+}
+
+.toast {
+  background: var(--white);
+  border-radius: var(--radius-sm);
+  padding: 1rem 1.5rem;
+  box-shadow: var(--shadow-lg);
+  border-right: 4px solid var(--primary);
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  min-width: 280px;
+  max-width: 400px;
+  animation: toastIn 0.3s ease;
+  pointer-events: auto;
+  font-weight: 500;
+}
+
+.toast.toast-success { border-right-color: var(--success); }
+.toast.toast-error { border-right-color: var(--danger); }
+.toast.toast-warning { border-right-color: var(--warning); }
+.toast.toast-info { border-right-color: var(--info); }
+
+.toast.toast-success .toast-icon { color: var(--success); }
+.toast.toast-error .toast-icon { color: var(--danger); }
+.toast.toast-warning .toast-icon { color: var(--warning); }
+.toast.toast-info .toast-icon { color: var(--info); }
+
+.toast-icon { font-size: 1.3rem; flex-shrink: 0; }
+.toast-message { flex: 1; line-height: 1.5; }
+.toast-close {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 1.1rem;
+  color: var(--text-muted);
+  padding: 0.2rem;
+}
+.toast-close:hover { color: var(--text); }
+
+@keyframes toastIn {
+  from { transform: translateX(-100%); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+@keyframes toastOut {
+  from { transform: translateX(0); opacity: 1; }
+  to { transform: translateX(-100%); opacity: 0; }
+}
+.toast.hiding { animation: toastOut 0.3s ease forwards; }
+
+/* ===== CUSTOM CONFIRM MODAL ===== */
+.confirm-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  padding: 1rem;
+}
+
+.confirm-box {
+  background: var(--white);
+  border-radius: var(--radius);
+  padding: 2rem;
+  max-width: 400px;
+  width: 100%;
+  text-align: center;
+  box-shadow: var(--shadow-lg);
+  animation: confirmIn 0.2s ease;
+}
+
+.confirm-box .confirm-icon {
+  font-size: 3rem;
+  margin-bottom: 0.5rem;
+}
+
+.confirm-box .confirm-title {
+  font-size: 1.3rem;
+  font-weight: 800;
+  color: var(--text);
+  margin-bottom: 0.5rem;
+}
+
+.confirm-box .confirm-message {
+  color: var(--text-muted);
+  margin-bottom: 1.5rem;
+  line-height: 1.6;
+}
+
+.confirm-box .confirm-actions {
+  display: flex;
+  gap: 0.8rem;
+  justify-content: center;
+}
+
+.confirm-box .confirm-actions .btn {
+  flex: 1;
+}
+
+@keyframes confirmIn {
+  from { transform: scale(0.9); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+/* ===== ORDER NOTIFICATION POPUP ===== */
+.order-notify-overlay {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(0,0,0,0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  padding: 1rem;
+}
+
+.order-notify-box {
+  background: var(--white);
+  border-radius: var(--radius);
+  padding: 2rem;
+  max-width: 420px;
+  width: 100%;
+  text-align: center;
+  box-shadow: var(--shadow-lg);
+  animation: confirmIn 0.3s ease;
+  border-top: 4px solid var(--primary);
+}
+
+.order-notify-box .notify-icon {
+  font-size: 3.5rem;
+  margin-bottom: 0.5rem;
+  animation: bellRing 1s ease infinite;
+}
+
+@keyframes bellRing {
+  0%, 100% { transform: rotate(0); }
+  10% { transform: rotate(15deg); }
+  30% { transform: rotate(-15deg); }
+  50% { transform: rotate(10deg); }
+  70% { transform: rotate(-10deg); }
+}
+
+.order-notify-box .notify-title {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: var(--primary);
+  margin-bottom: 0.5rem;
+}
+
+.order-notify-box .notify-message {
+  color: var(--text-muted);
+  margin-bottom: 1.5rem;
+  font-size: 1.05rem;
+}
+
+.order-notify-box .notify-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+}
+
+.order-notify-box .notify-actions .btn {
+  font-size: 1.05rem;
+  padding: 0.9rem;
+}
+
+/* Customer receipt share button */
+.receipt-share-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.8rem 1.5rem;
+  border-radius: var(--radius-sm);
+  background: var(--primary);
+  color: var(--white);
+  font-weight: 700;
+  font-size: 1rem;
+  border: none;
+  cursor: pointer;
+  width: 100%;
+}
+.receipt-share-btn:hover { background: var(--primary-dark); }

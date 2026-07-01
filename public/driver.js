@@ -99,7 +99,7 @@ async function loadOrders() {
     allOrders = await res.json();
   } catch (e) {
     console.error('Orders error', e);
-    if (e.message === 'Auth failed') { alert('انتهت الجلسة'); logout(); }
+    if (e.message === 'Auth failed') { showToast('انتهت الجلسة، يرجى تسجيل الدخول مرة أخرى 🔒', 'warning'); logout(); }
   }
 }
 
@@ -198,13 +198,13 @@ async function startDelivery(orderId) {
     });
     loadOrders().then(renderOrders);
     loadStats();
-  } catch (e) { alert('فشل بدء التوصيل'); }
+  } catch (e) { showToast('تعذر بدء التوصيل ❌', 'error'); }
 }
 
 function showRoute(orderId) {
   const order = allOrders.find(o => o.id === orderId);
   if (!order || !order.latitude || !order.longitude) {
-    alert('لا يوجد موقع لهذا الطلب');
+    showToast('لا يوجد موقع لهذا الطلب 📍', 'warning');
     return;
   }
 
@@ -284,7 +284,7 @@ function showRoute(orderId) {
 function getDriverCurrentLocation() {
   if (!routeMap) return;
   if (!navigator.geolocation) {
-    alert('المتصفح لا يدعم تحديد الموقع');
+    showToast('المتصفح لا يدعم تحديد الموقع 📍', 'error');
     return;
   }
   navigator.geolocation.getCurrentPosition(
@@ -300,7 +300,7 @@ function getDriverCurrentLocation() {
       L.marker([lat, lng], { icon: driverIcon }).addTo(routeMap)
         .bindPopup('موقعك الحالي').openPopup();
     },
-    () => alert('تعذر الحصول على الموقع')
+    () => showToast('تعذر الحصول على الموقع 📍', 'error')
   );
 }
 
@@ -326,7 +326,7 @@ async function markDelivered() {
     closeMapModal();
     loadOrders().then(renderOrders);
     loadStats();
-  } catch (e) { alert('فشل تحديث الحالة'); }
+  } catch (e) { showToast('تعذر تحديث حالة الطلب ❌', 'error'); }
 }
 
 function closeMapModal() {
