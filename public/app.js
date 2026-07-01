@@ -616,3 +616,8 @@ function toggleTheme() {
 
 loadCart();
 loadMenu();
+
+// Handle #track hash from splash screen
+if (window.location.hash === '#track') {
+  setTimeout(() => showOrderStatus(), 500);
+}
