@@ -1,4 +1,4 @@
-const API = 'http://localhost:3015/api';
+const API = window.location.origin + '/api';
 let token = localStorage.getItem('driver_token');
 let allOrders = [];
 let allSettings = {};
