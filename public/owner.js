@@ -200,16 +200,21 @@ function generateQR() {
 function generateTableQR() {
   const tableNum = document.getElementById('tableQrInput').value;
   if (!tableNum) return alert('أدخل رقم الطاولة');
-  const baseUrl = document.getElementById('qrUrl').textContent || window.location.origin + '/menu.html';
-  const tableUrl = baseUrl.split('?')[0] + '?table=' + encodeURIComponent(tableNum);
+  const tableUrl = window.location.origin + '/menu.html?table=' + encodeURIComponent(tableNum);
   const container = document.getElementById('tableQrResult');
-  QRCode.toDataURL(tableUrl).then(dataUrl => {
-    container.innerHTML = `
-      <img src="${dataUrl}" style="max-width:200px;border:1px solid var(--border);border-radius:var(--radius);margin-bottom:0.5rem;">
-      <p style="font-size:0.8rem;color:var(--text-muted);word-break:break-all;">${tableUrl}</p>
-      <button class="btn btn-outline btn-sm" onclick="window.open('${dataUrl}');">🖨️ طباعة</button>
-    `;
-  }).catch(() => alert('فشل إنشاء الرمز'));
+  container.innerHTML = '<p style="color:var(--text-muted);font-size:0.8rem;">جاري إنشاء الرمز...</p>';
+  fetch(`${API}/qrcode?url=${encodeURIComponent(tableUrl)}`)
+    .then(r => r.json())
+    .then(data => {
+      container.innerHTML = `
+        <img src="${data.qr}" style="max-width:200px;border:1px solid var(--border);border-radius:var(--radius);margin-bottom:0.5rem;">
+        <p style="font-size:0.8rem;color:var(--text-muted);word-break:break-all;">${data.url}</p>
+        <button class="btn btn-outline btn-sm" onclick="window.open('${data.qr}');">🖨️ طباعة</button>
+      `;
+    })
+    .catch(() => {
+      container.innerHTML = '<p style="color:var(--danger);font-size:0.8rem;">فشل إنشاء الرمز</p>';
+    });
 }
 
 function shareQR() {
@@ -846,12 +851,14 @@ async function generateReceipt(orderId) {
     }
   });
 
-  const qrUrl = `${window.location.origin}/menu.html`;
-
-  // Generate QR code data URL
+  // Generate QR code via server API
   let qrDataUrl = '';
   try {
-    qrDataUrl = await QRCode.toDataURL(qrUrl, { width: 120, margin: 2 });
+    const qrRes = await fetch(`${API}/qrcode?url=${encodeURIComponent(window.location.origin + '/menu.html')}`);
+    if (qrRes.ok) {
+      const qrData = await qrRes.json();
+      qrDataUrl = qrData.qr;
+    }
   } catch (e) { qrDataUrl = ''; }
 
   const receiptHtml = `
@@ -865,11 +872,11 @@ async function generateReceipt(orderId) {
       <div class="receipt-line"><span>رقم الطلب:</span><span>#${order.id}</span></div>
       <div class="receipt-line"><span>التاريخ:</span><span>${formatTime(order.created_at)}</span></div>
       <div class="receipt-line"><span>الزبون:</span><span>${order.customer_name || 'زبون'}</span></div>
+      ${customFieldsHtml ? '<hr style="border:1px dashed var(--border);margin:0.5rem 0;">' + customFieldsHtml : ''}
       <hr style="border:1px dashed var(--border);margin:0.5rem 0;">
       ${itemsHtml}
       <hr style="border:1px dashed var(--border);margin:0.5rem 0;">
       <div class="receipt-line receipt-total"><span>الإجمالي:</span><span>${formatPrice(order.total_amount)}</span></div>
-      ${customFieldsHtml}
       <div class="receipt-footer">
         ${allSettings.receipt_footer || 'شكراً لزيارتكم!'}
         ${qrDataUrl ? `<div style="margin-top:0.5rem;"><img src="${qrDataUrl}" style="width:100px;height:100px;"></div><div style="font-size:0.7rem;color:var(--text-muted);">امسح لرؤية القائمة</div>` : ''}

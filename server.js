@@ -9,17 +9,22 @@ const path = require('path');
 const fs = require('fs');
 
 const app = express();
-const PORT = process.env.SERVER_PORT || 3015;
+const PORT = process.env.PORT || process.env.SERVER_PORT || 3015;
 const JWT_SECRET = process.env.JWT_SECRET || 'caracalla_default_secret';
 
-// PostgreSQL
-const pool = new Pool({
-  user: process.env.DB_USER || 'postgres',
-  host: process.env.DB_HOST || 'localhost',
-  database: process.env.DB_NAME || 'caracalla_cafe',
-  password: process.env.DB_PASSWORD || 'your_password',
-  port: parseInt(process.env.DB_PORT) || 5432,
-});
+// PostgreSQL — support Neon DATABASE_URL or individual env vars
+let pool;
+if (process.env.DATABASE_URL) {
+  pool = new Pool({ connectionString: process.env.DATABASE_URL });
+} else {
+  pool = new Pool({
+    user: process.env.DB_USER || 'postgres',
+    host: process.env.DB_HOST || 'localhost',
+    database: process.env.DB_NAME || 'caracalla_cafe',
+    password: process.env.DB_PASSWORD || 'your_password',
+    port: parseInt(process.env.DB_PORT) || 5432,
+  });
+}
 
 // Multer config
 const storage = multer.diskStorage({
@@ -420,9 +425,9 @@ app.delete('/api/orders/:id', verifyToken, requireRole(['owner']), async (req, r
 // ===================== QR CODE =====================
 app.get('/api/qrcode', async (req, res) => {
   try {
-    const menuUrl = `http://${req.headers.host}/menu.html`;
-    const qrDataUrl = await QRCode.toDataURL(menuUrl);
-    res.json({ qr: qrDataUrl, url: menuUrl });
+    const url = req.query.url || `${req.protocol}://${req.get('host')}/menu.html`;
+    const qrDataUrl = await QRCode.toDataURL(url);
+    res.json({ qr: qrDataUrl, url });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 

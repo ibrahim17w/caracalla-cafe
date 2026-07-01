@@ -69,6 +69,14 @@
   color: var(--white);
 }
 
+[data-theme="dark"] .btn[style*="background:#eee"],
+[data-theme="dark"] .btn[style*="background: #eee"],
+[data-theme="dark"] .modal .btn:not(.btn-primary):not(.btn-success):not(.btn-danger):not(.btn-outline) {
+  background: #3a322c !important;
+  color: #F0E8E0 !important;
+  border-color: var(--border) !important;
+}
+
 [data-theme="dark"] .tab:not(.active) {
   background: var(--cream);
   color: var(--text-muted);

@@ -42,3 +42,4 @@ Thumbs.db
 
 # Context files (local-only)
 context.md
+".env" 
