@@ -132,12 +132,29 @@ nav .links a {
   color: var(--text);
   text-decoration: none;
   margin-right: 1.5rem;
-  font-size: 0.95rem;
-  font-weight: 500;
-  transition: color 0.2s;
+  font-size: 1rem;
+  font-weight: 600;
+  padding: 0.5rem 0.8rem;
+  border-radius: var(--radius-sm);
+  transition: all 0.2s;
+  display: inline-block;
 }
 
-nav .links a:hover { color: var(--primary); }
+nav .links a:hover {
+  color: var(--primary);
+  background: var(--cream);
+}
+
+/* Mobile nav */
+@media (max-width: 768px) {
+  nav { padding: 0.8rem 1rem; flex-wrap: wrap; }
+  nav h1 { font-size: 1.2rem; }
+  nav .links a {
+    margin-right: 0.8rem;
+    font-size: 0.9rem;
+    padding: 0.4rem 0.6rem;
+  }
+}
 
 /* ===== LOGIN SCREEN ===== */
 .login-screen {

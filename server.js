@@ -97,6 +97,21 @@ function requireRole(roles) {
   };
 }
 
+// ===================== ORDER RATE LIMITING =====================
+const orderLimits = {};
+function rateLimitOrders(req, res, next) {
+  const ip = req.ip || req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.connection?.remoteAddress || 'unknown';
+  const now = Date.now();
+  if (!orderLimits[ip]) orderLimits[ip] = [];
+  // Keep only requests from last 60 seconds
+  orderLimits[ip] = orderLimits[ip].filter(t => now - t < 60000);
+  if (orderLimits[ip].length >= 2) {
+    return res.status(429).json({ error: 'Too many orders. Please wait a minute.' });
+  }
+  orderLimits[ip].push(now);
+  next();
+}
+
 // ===================== AUTH ROUTES =====================
 app.post('/api/login', (req, res) => {
   const ip = req.ip || req.connection.remoteAddress;
@@ -338,7 +353,7 @@ app.get('/api/orders/:id', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-app.post('/api/orders', async (req, res) => {
+app.post('/api/orders', rateLimitOrders, async (req, res) => {
   const { customer_name, phone, table_number, order_type, address_text, latitude, longitude, items, notes } = req.body;
   const client = await pool.connect();
   try {

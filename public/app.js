@@ -180,8 +180,26 @@ function addToCart() {
     additions: additions
   });
 
+  saveCart();
   updateCartUI();
   closeModal();
+}
+
+function saveCart() {
+  localStorage.setItem('cafeCart', JSON.stringify(cart));
+}
+
+function loadCart() {
+  const saved = localStorage.getItem('cafeCart');
+  if (saved) {
+    try { cart = JSON.parse(saved); } catch (e) { cart = []; }
+  }
+}
+
+function clearCart() {
+  cart = [];
+  localStorage.removeItem('cafeCart');
+  updateCartUI();
 }
 
 function updateCartUI() {
@@ -235,6 +253,7 @@ function openCheckout() {
 
 function removeCartItem(idx) {
   cart.splice(idx, 1);
+  saveCart();
   updateCartUI();
   openCheckout();
 }
@@ -378,8 +397,7 @@ async function submitOrder() {
     document.getElementById('successOrderId').textContent = '#' + order.id;
     document.getElementById('successModal').classList.remove('hidden');
 
-    cart = [];
-    updateCartUI();
+    clearCart();
     closeCheckout();
   } catch (e) {
     alert('فشل إرسال الطلب: ' + e.message);
@@ -596,4 +614,5 @@ function toggleTheme() {
   if (saved) document.documentElement.setAttribute('data-theme', saved);
 })();
 
+loadCart();
 loadMenu();
