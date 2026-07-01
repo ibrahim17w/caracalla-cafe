@@ -30,6 +30,7 @@
     <nav>
       <h1><img id="navLogo" src="" class="logo-img" style="display:none;"><span id="navTitle">☕ كاراكالا كافيه</span></h1>
       <div class="links">
+        <a href="#" onclick="toggleTheme()">🌙/☀️</a>
         <a href="menu.html" target="_blank">القائمة</a>
         <a href="driver.html" target="_blank">السائق</a>
         <a href="#" onclick="logout()">خروج</a>
@@ -46,6 +47,14 @@
         <div class="flex gap-1 justify-center">
           <button class="btn btn-primary" onclick="shareQR()">📤 مشاركة</button>
           <button class="btn btn-outline" onclick="printQR()">🖨️ طباعة</button>
+        </div>
+        <div style="margin-top:1rem;padding-top:1rem;border-top:1px solid var(--border);">
+          <label style="display:block;margin-bottom:0.3rem;font-weight:700;font-size:0.9rem;">رمز QR لطاولة محددة</label>
+          <div class="flex gap-1 align-center">
+            <input type="number" id="tableQrInput" placeholder="رقم الطاولة" style="flex:1;" min="1">
+            <button class="btn btn-primary btn-sm" onclick="generateTableQR()">إنشاء</button>
+          </div>
+          <div id="tableQrResult" style="margin-top:0.5rem;text-align:center;"></div>
         </div>
       </div>
 
@@ -144,17 +153,6 @@
           <div class="form-group">
             <label>العنوان</label>
             <input type="text" id="setCafeAddress" placeholder="عنوان المقهى">
-          </div>
-          <div class="form-group">
-            <label>المنطقة الزمنية</label>
-            <select id="setTimezone">
-              <option value="Asia/Damascus">سوريا (دمشق)</option>
-              <option value="Asia/Beirut">لبنان (بيروت)</option>
-              <option value="Asia/Amman">الأردن (عمان)</option>
-              <option value="Asia/Baghdad">العراق (بغداد)</option>
-              <option value="Asia/Riyadh">السعودية (الرياض)</option>
-              <option value="UTC">UTC</option>
-            </select>
           </div>
           <div class="form-group">
             <label>شعار المقهى (اختياري)</label>
@@ -259,6 +257,7 @@
   </div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
   <script src="owner.js"></script>
 </body>
 </html>

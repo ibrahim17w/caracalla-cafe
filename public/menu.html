@@ -11,6 +11,7 @@
   <nav>
     <h1><img id="cafeLogo" src="" class="logo-img" style="display:none;"><span id="cafeName">☕ كاراكالا كافيه</span></h1>
     <div class="links">
+      <a href="#" onclick="toggleTheme()">🌙/☀️</a>
       <a href="#" onclick="showCafeLocation()">📍 موقع المقهى</a>
       <a href="#" onclick="showOrderStatus()">📋 حالة طلبي</a>
     </div>
@@ -24,6 +25,7 @@
   <!-- Cart Panel -->
   <div class="cart-panel" id="cartPanel">
     <div class="cart-info">
+      <span id="tableBadge" class="hidden" style="background:var(--primary);color:white;padding:0.2rem 0.5rem;border-radius:4px;font-size:0.8rem;margin-left:0.5rem;"></span>
       الطلبات: <span id="cartCount">0</span> | الإجمالي: <span id="cartTotal">0</span> <span style="font-size:0.9rem;">ل.س</span>
     </div>
     <button class="btn btn-primary" onclick="openCheckout()">اطلب الآن</button>

@@ -9,6 +9,22 @@ let orderMapMarker = null;
 let cafeSettingMap = null;
 let cafeSettingMarker = null;
 let draggedCategory = null;
+let previousOrderCount = null;
+
+function playBeep() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.type = 'sine';
+    osc.frequency.value = 880;
+    gain.gain.value = 0.3;
+    osc.start();
+    setTimeout(() => { osc.stop(); ctx.close(); }, 200);
+  } catch (e) { console.error('Beep failed', e); }
+}
 
 // Check auth
 if (token) {
@@ -107,7 +123,14 @@ async function loadItems() {
 
 async function loadOrders() {
   const res = await fetch(`${API}/orders`, { headers: authHeaders() });
-  allOrders = await res.json();
+  const newOrders = await res.json();
+  const currentTab = document.querySelector('.tab.active');
+  const onOrdersTab = currentTab && currentTab.textContent.includes('الطلبات');
+  if (previousOrderCount !== null && newOrders.length > previousOrderCount && onOrdersTab) {
+    playBeep();
+  }
+  previousOrderCount = newOrders.length;
+  allOrders = newOrders;
 }
 
 async function loadStats() {
@@ -130,7 +153,6 @@ function applySettings() {
   }
   if (allSettings.cafe_phone) document.getElementById('setCafePhone').value = allSettings.cafe_phone;
   if (allSettings.cafe_address) document.getElementById('setCafeAddress').value = allSettings.cafe_address;
-  if (allSettings.timezone) document.getElementById('setTimezone').value = allSettings.timezone;
   if (allSettings.receipt_footer) document.getElementById('setReceiptFooter').value = allSettings.receipt_footer;
   if (allSettings.cafe_logo) {
     const logo = document.getElementById('navLogo');
@@ -162,8 +184,7 @@ function getStatusLabel(status) {
 }
 
 function formatTime(dateStr) {
-  if (!allSettings.timezone) return new Date(dateStr).toLocaleString('ar-SY');
-  return new Date(dateStr).toLocaleString('ar-SY', { timeZone: allSettings.timezone });
+  return new Date(dateStr).toLocaleString('ar-SY', { timeZone: 'Asia/Damascus' });
 }
 
 // ===================== QR CODE =====================
@@ -174,6 +195,21 @@ function generateQR() {
       document.getElementById('qrImage').src = data.qr;
       document.getElementById('qrUrl').textContent = data.url;
     });
+}
+
+function generateTableQR() {
+  const tableNum = document.getElementById('tableQrInput').value;
+  if (!tableNum) return alert('أدخل رقم الطاولة');
+  const baseUrl = document.getElementById('qrUrl').textContent || window.location.origin + '/menu.html';
+  const tableUrl = baseUrl.split('?')[0] + '?table=' + encodeURIComponent(tableNum);
+  const container = document.getElementById('tableQrResult');
+  QRCode.toDataURL(tableUrl).then(dataUrl => {
+    container.innerHTML = `
+      <img src="${dataUrl}" style="max-width:200px;border:1px solid var(--border);border-radius:var(--radius);margin-bottom:0.5rem;">
+      <p style="font-size:0.8rem;color:var(--text-muted);word-break:break-all;">${tableUrl}</p>
+      <button class="btn btn-outline btn-sm" onclick="window.open('${dataUrl}');">🖨️ طباعة</button>
+    `;
+  }).catch(() => alert('فشل إنشاء الرمز'));
 }
 
 function shareQR() {
@@ -261,6 +297,8 @@ function renderItems(filter = '') {
           ${(item.additions || []).map(a => a.name).join('، ') || 'لا توجد إضافات'}
         </div>
         <button class="btn btn-primary btn-sm" onclick="openEditModal(${item.id})">تعديل</button>
+        <button class="btn btn-sm" onclick="toggleItemAvailability(${item.id})" style="background:${item.is_available ? 'var(--success)' : 'var(--danger)'};color:white;min-width:2.5rem;">${item.is_available ? '✅' : '❌'}</button>
+        <button class="btn btn-outline btn-sm" onclick="duplicateItem(${item.id})">📋 نسخ</button>
       </div>
     `;
     grid.appendChild(div);
@@ -440,6 +478,82 @@ async function deleteItem() {
   }
 }
 
+async function toggleItemAvailability(id) {
+  try {
+    const res = await fetch(`${API}/items/${id}/toggle`, {
+      method: 'PUT',
+      headers: authHeaders()
+    });
+    if (!res.ok) throw new Error('Failed');
+    await loadItems();
+    renderItems();
+  } catch (e) {
+    alert('فشل تغيير التوفر');
+  }
+}
+
+function duplicateItem(itemId) {
+  const item = allItems.find(i => i.id === itemId);
+  if (!item) return;
+  document.getElementById('newName').value = item.name + ' (نسخة)';
+  document.getElementById('newCategory').value = item.category_id || '';
+  document.getElementById('newDesc').value = item.description || '';
+  document.getElementById('newPrice').value = item.price;
+  document.getElementById('newStock').value = item.stock || '';
+  document.getElementById('newImage').value = '';
+  document.getElementById('newImagePreview').innerHTML = '<span>📷 اضغط لاختيار صورة</span>';
+
+  const addDiv = document.getElementById('newAdditions');
+  addDiv.innerHTML = '';
+  (item.additions || []).forEach(a => {
+    const row = document.createElement('div');
+    row.className = 'flex gap-1 align-center mt-1';
+    row.innerHTML = `
+      <input type="text" value="${a.name}" class="add-name" style="flex:2;">
+      <input type="number" value="${a.price}" class="add-price" style="flex:1;">
+      <button class="btn btn-danger btn-sm" onclick="this.parentElement.remove()">×</button>
+    `;
+    addDiv.appendChild(row);
+  });
+
+  const addTabBtn = document.querySelector('.tab[onclick*="switchTab(\'add\'"]');
+  if (addTabBtn) switchTab('add', addTabBtn);
+}
+
+function printKitchenTicket(orderId) {
+  const order = allOrders.find(o => o.id === orderId);
+  if (!order) return;
+  const itemsHtml = order.items.map(it => {
+    let adds = '';
+    if (it.additions && it.additions.length > 0) {
+      adds = `<div style="font-size:0.8rem;color:#666;margin-top:2px;">${it.additions.map(a => `+ ${a.addition_name}`).join('، ')}</div>`;
+    }
+    return `<div style="margin-bottom:8px;border-bottom:1px dashed #ccc;padding-bottom:4px;"><strong>${it.item_name}</strong> × ${it.quantity}${adds}</div>`;
+  }).join('');
+  const w = window.open('', '_blank');
+  w.document.write(`
+    <html dir="rtl">
+    <head><style>
+      body { font-family: 'Tajawal', sans-serif; padding: 1rem; font-size: 1.2rem; }
+      h2 { text-align: center; margin-bottom: 0.5rem; font-size: 1.5rem; }
+      .meta { text-align: center; color: #666; font-size: 0.9rem; margin-bottom: 1rem; }
+      .items { border-top: 2px solid #333; border-bottom: 2px solid #333; padding: 0.5rem 0; }
+      .notes { background: #fff0f0; border: 2px solid #c00; padding: 0.5rem; margin-top: 1rem; font-weight: bold; color: #c00; border-radius: 4px; }
+      .time { text-align: center; font-size: 0.8rem; color: #999; margin-top: 1rem; }
+      @media print { body { padding: 0; } }
+    </style></head>
+    <body>
+      <h2>🍳 طلب مطبخ #${order.id}</h2>
+      <div class="meta">${order.order_type === 'delivery' ? '🛵 توصيل' : '🍽️ داخل المقهى'} ${order.table_number ? '— طاولة ' + order.table_number : ''}</div>
+      <div class="items">${itemsHtml}</div>
+      ${order.notes ? `<div class="notes">📌 ملاحظة: ${order.notes}</div>` : ''}
+      <div class="time">${formatTime(order.created_at)}</div>
+      <script>window.onload = function() { window.print(); setTimeout(() => window.close(), 500); };</script>
+    </body></html>
+  `);
+  w.document.close();
+}
+
 // ===================== CATEGORIES =====================
 async function addCategory() {
   const name = document.getElementById('newCatName').value.trim();
@@ -582,6 +696,7 @@ function renderOrders() {
 
     let deleteBtn = `<button class="btn btn-danger btn-sm" onclick="deleteOrder(${order.id})">🗑️ حذف</button>`;
     let receiptBtn = `<button class="btn btn-outline btn-sm" onclick="generateReceipt(${order.id})">🧾 فاتورة</button>`;
+    let kitchenBtn = `<button class="btn btn-outline btn-sm" onclick="printKitchenTicket(${order.id})">🧾 مطبخ</button>`;
     let editBtn = `<button class="btn btn-warning btn-sm" onclick="editOrder(${order.id})">✏️ تعديل</button>`;
 
     card.innerHTML = `
@@ -615,9 +730,10 @@ function renderOrders() {
         ${cancelBtn}
         ${editBtn}
         ${receiptBtn}
+        ${kitchenBtn}
         ${deleteBtn}
       </div>
-      ${order.notes ? `<div style="color:var(--text-muted);font-size:0.85rem;margin-top:0.5rem;background:var(--cream);padding:0.5rem;border-radius:6px;">ملاحظة: ${order.notes}</div>` : ''}
+      ${order.notes ? `<div style="border:2px solid var(--danger);color:var(--danger);font-size:1rem;margin-top:0.5rem;background:#fff0f0;padding:0.5rem;border-radius:6px;font-weight:700;">📌 ملاحظة: ${order.notes}</div>` : ''}
     `;
     container.appendChild(card);
   });
@@ -703,7 +819,7 @@ function closeMapModal() {
 }
 
 // ===================== RECEIPT =====================
-function generateReceipt(orderId) {
+async function generateReceipt(orderId) {
   const order = allOrders.find(o => o.id === orderId);
   if (!order) return;
 
@@ -732,6 +848,12 @@ function generateReceipt(orderId) {
 
   const qrUrl = `${window.location.origin}/menu.html`;
 
+  // Generate QR code data URL
+  let qrDataUrl = '';
+  try {
+    qrDataUrl = await QRCode.toDataURL(qrUrl, { width: 120, margin: 2 });
+  } catch (e) { qrDataUrl = ''; }
+
   const receiptHtml = `
     <div id="receiptPrint" class="receipt">
       <div class="receipt-header">
@@ -750,7 +872,7 @@ function generateReceipt(orderId) {
       ${customFieldsHtml}
       <div class="receipt-footer">
         ${allSettings.receipt_footer || 'شكراً لزيارتكم!'}
-        <div><img src="${qrUrl}" class="qr-small" onerror="this.style.display='none'"></div>
+        ${qrDataUrl ? `<div style="margin-top:0.5rem;"><img src="${qrDataUrl}" style="width:100px;height:100px;"></div><div style="font-size:0.7rem;color:var(--text-muted);">امسح لرؤية القائمة</div>` : ''}
       </div>
     </div>
   `;
@@ -820,7 +942,6 @@ async function saveSettings() {
     { key: 'cafe_name', value: document.getElementById('setCafeName').value },
     { key: 'cafe_phone', value: document.getElementById('setCafePhone').value },
     { key: 'cafe_address', value: document.getElementById('setCafeAddress').value },
-    { key: 'timezone', value: document.getElementById('setTimezone').value },
   ];
 
   if (logoPath) settings.push({ key: 'cafe_logo', value: logoPath });
@@ -925,3 +1046,16 @@ document.addEventListener('click', (e) => {
     }
   }
 });
+
+// Theme toggle
+function toggleTheme() {
+  const current = document.documentElement.getAttribute('data-theme') || 'light';
+  const next = current === 'light' ? 'dark' : 'light';
+  document.documentElement.setAttribute('data-theme', next);
+  localStorage.setItem('cafeTheme', next);
+}
+
+(function initTheme() {
+  const saved = localStorage.getItem('cafeTheme');
+  if (saved) document.documentElement.setAttribute('data-theme', saved);
+})();

@@ -25,6 +25,60 @@
   --radius-sm: 10px;
 }
 
+[data-theme="dark"] {
+  --cream: #1a1612;
+  --white: #2a2420;
+  --primary: #D4A574;
+  --primary-dark: #B07D4B;
+  --primary-light: #E8C9A0;
+  --text: #F0E8E0;
+  --text-muted: #A09890;
+  --border: #3a322c;
+  --shadow: 0 2px 12px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.4);
+  --success: #6BAF6B;
+  --warning: #D4A850;
+  --danger: #D0706B;
+  --info: #6B8FAF;
+}
+
+[data-theme="dark"] .item-img img,
+[data-theme="dark"] .receipt-img,
+[data-theme="dark"] .modal-header img,
+[data-theme="dark"] .card-img img,
+[data-theme="dark"] #qrImage,
+[data-theme="dark"] #tableQrResult img {
+  filter: brightness(0.85) contrast(1.1);
+}
+
+[data-theme="dark"] .map-container {
+  filter: brightness(0.9) contrast(1.1);
+}
+
+[data-theme="dark"] .modal-overlay {
+  background: rgba(0,0,0,0.85);
+}
+
+[data-theme="dark"] .btn-outline {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+[data-theme="dark"] .btn-outline:hover {
+  background: var(--primary);
+  color: var(--white);
+}
+
+[data-theme="dark"] .tab:not(.active) {
+  background: var(--cream);
+  color: var(--text-muted);
+}
+
+[data-theme="dark"] .category-chip:not(.active) {
+  background: var(--white);
+  color: var(--text-muted);
+}
+
 html { direction: rtl; }
 
 body {

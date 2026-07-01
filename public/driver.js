@@ -133,8 +133,7 @@ function getStatusLabel(status) {
 }
 
 function formatTime(dateStr) {
-  if (!allSettings.timezone) return new Date(dateStr).toLocaleString('ar-SY');
-  return new Date(dateStr).toLocaleString('ar-SY', { timeZone: allSettings.timezone });
+  return new Date(dateStr).toLocaleString('ar-SY', { timeZone: 'Asia/Damascus' });
 }
 
 function renderOrders() {
@@ -246,7 +245,8 @@ function showRoute(orderId) {
 
     // Show distance from cafe to destination
     const cafeDist = calculateDistance(cafeLat, cafeLng, destLat, destLng);
-    let distHtml = `المسافة من المقهى: ${cafeDist.toFixed(1)} كم`;
+    const etaMinutes = Math.round((cafeDist / 30) * 60); // 30 km/h average
+    let distHtml = `المسافة من المقهى: ${cafeDist.toFixed(1)} كم | الوقت المتوقع: ~${etaMinutes} دقيقة`;
 
     // Show driver location if available and distance to destination
     if (navigator.geolocation) {
@@ -261,7 +261,8 @@ function showRoute(orderId) {
         L.marker([driverLat, driverLng], { icon: driverIcon }).addTo(routeMap)
           .bindPopup('موقعك الحالي').openPopup();
         const driverDist = calculateDistance(driverLat, driverLng, destLat, destLng);
-        distHtml += ` | المسافة إليك: ${driverDist.toFixed(1)} كم`;
+        const driverEta = Math.round((driverDist / 30) * 60);
+        distHtml += ` | المسافة إليك: ${driverDist.toFixed(1)} كم | وصولك: ~${driverEta} دقيقة`;
         document.getElementById('routeDistance').textContent = distHtml;
       }, () => {
         document.getElementById('routeDistance').textContent = distHtml;
@@ -339,3 +340,15 @@ document.addEventListener('click', (e) => {
     closeMapModal();
   }
 });
+
+function toggleTheme() {
+  const current = document.documentElement.getAttribute('data-theme') || 'light';
+  const next = current === 'light' ? 'dark' : 'light';
+  document.documentElement.setAttribute('data-theme', next);
+  localStorage.setItem('cafeTheme', next);
+}
+
+(function initTheme() {
+  const saved = localStorage.getItem('cafeTheme');
+  if (saved) document.documentElement.setAttribute('data-theme', saved);
+})();

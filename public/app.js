@@ -10,18 +10,21 @@ let customerLocation = null;
 let cafeLocation = null;
 let cafeMap = null;
 let settings = {};
+let bestSellers = [];
 
 async function loadMenu() {
   try {
-    const [catRes, itemRes, settingsRes] = await Promise.all([
+    const [catRes, itemRes, settingsRes, bestSellersRes] = await Promise.all([
       fetch(`${API}/categories`),
       fetch(`${API}/items`),
-      fetch(`${API}/settings`)
+      fetch(`${API}/settings`),
+      fetch(`${API}/best-sellers`)
     ]);
     if (!catRes.ok || !itemRes.ok) throw new Error('Network error');
     categories = await catRes.json();
     items = await itemRes.json();
     settings = await settingsRes.json();
+    bestSellers = await bestSellersRes.json().catch(() => []);
 
     // Update cafe name/logo
     if (settings.cafe_name) document.getElementById('cafeName').textContent = settings.cafe_name;
@@ -32,6 +35,25 @@ async function loadMenu() {
     }
     if (settings.cafe_lat && settings.cafe_lng) {
       cafeLocation = { lat: parseFloat(settings.cafe_lat), lng: parseFloat(settings.cafe_lng) };
+    }
+
+    // Check for table number in URL
+    const urlParams = new URLSearchParams(window.location.search);
+    const tableNum = urlParams.get('table');
+    if (tableNum) {
+      window.preselectedTable = tableNum;
+      const cartPanel = document.getElementById('cartPanel');
+      if (cartPanel) {
+        let badge = document.getElementById('tableBadge');
+        if (!badge) {
+          badge = document.createElement('div');
+          badge.id = 'tableBadge';
+          badge.style.cssText = 'background:var(--primary);color:white;padding:2px 8px;border-radius:10px;font-size:0.8rem;font-weight:700;position:absolute;top:-10px;left:10px;';
+          cartPanel.style.position = 'relative';
+          cartPanel.appendChild(badge);
+        }
+        badge.textContent = 'طاولة ' + tableNum;
+      }
     }
 
     renderTabs();
@@ -79,10 +101,15 @@ function renderMenu(catId) {
     const imgHtml = item.image_path 
       ? `<div class="item-img"><img src="${item.image_path}" alt="${item.name}"></div>`
       : `<div class="item-img">☕</div>`;
+    const isBestSeller = bestSellers.some(bs => String(bs.item_id) === String(item.id));
+    const cartItem = cart.find(c => c.id === item.id);
+    const cartQty = cartItem ? cartItem.quantity : 0;
+    const badgeHtml = isBestSeller ? '<span style="background:var(--warning);color:white;font-size:0.7rem;padding:2px 6px;border-radius:8px;font-weight:700;margin-left:4px;">🔥 الأكثر مبيعاً</span>' : '';
+    const cartBadgeHtml = cartQty > 0 ? `<span style="background:var(--primary);color:white;font-size:0.75rem;padding:2px 8px;border-radius:10px;font-weight:700;margin-left:4px;">🛒 ${cartQty}</span>` : '';
     div.innerHTML = `
       ${imgHtml}
       <div class="item-body">
-        <div class="item-name">${item.name}</div>
+        <div class="item-name">${item.name}${badgeHtml}${cartBadgeHtml}</div>
         <div class="item-desc">${item.description || ''}</div>
         <div class="item-price">${formatPrice(item.price)}</div>
         <button class="btn btn-primary btn-sm" onclick="openItemModal(${item.id})">تخصيص</button>
@@ -200,6 +227,9 @@ function openCheckout() {
 
   document.getElementById('checkoutTotal').textContent = 'الإجمالي: ' + total.toLocaleString('ar-SY') + ' ل.س';
   selectOrderType('dine_in', document.querySelector('[data-type="dine_in"]'));
+  if (window.preselectedTable) {
+    document.getElementById('tableNumber').value = window.preselectedTable;
+  }
   document.getElementById('checkoutModal').classList.remove('hidden');
 }
 
@@ -552,5 +582,18 @@ document.addEventListener('click', (e) => {
     }
   }
 });
+
+// Theme toggle
+function toggleTheme() {
+  const current = document.documentElement.getAttribute('data-theme') || 'light';
+  const next = current === 'light' ? 'dark' : 'light';
+  document.documentElement.setAttribute('data-theme', next);
+  localStorage.setItem('cafeTheme', next);
+}
+
+(function initTheme() {
+  const saved = localStorage.getItem('cafeTheme');
+  if (saved) document.documentElement.setAttribute('data-theme', saved);
+})();
 
 loadMenu();

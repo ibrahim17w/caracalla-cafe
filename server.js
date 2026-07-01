@@ -252,6 +252,8 @@ app.put('/api/items/:id/toggle', verifyToken, requireRole(['owner']), async (req
     res.json(result.rows[0]);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
+
+app.put('/api/items/:id', verifyToken, requireRole(['owner']), upload.single('image'), async (req, res) => {
   const { category_id, name, description, price, stock, is_available, additions } = req.body;
   const client = await pool.connect();
   try {
