@@ -123,7 +123,7 @@
         <div class="card">
           <h2>إضافة قسم جديد</h2>
           <div class="flex gap-1 align-center">
-            <input type="text" id="newCatName" placeholder="اسم القسم" style="flex:1;">
+            <input type="text" id="newCatName" placeholder="اسم القسم الجديد" onkeydown="if(event.key==='Enter')addCategory()" style="flex:1;">
             <button class="btn btn-success" onclick="addCategory()">إضافة</button>
           </div>
         </div>

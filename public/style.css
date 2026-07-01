@@ -847,7 +847,12 @@ input[type="file"] {
   .container { padding: 1rem; }
   nav { padding: 1rem; flex-direction: column; gap: 0.5rem; }
   nav .links a { margin: 0 0.6rem; }
-  .grid { grid-template-columns: repeat(2, 1fr); }
+  .grid { grid-template-columns: repeat(2, 1fr); gap: 0.8rem; }
+  .menu-item .item-img { height: 120px; font-size: 2rem; }
+  .menu-item .item-body { padding: 0.8rem; }
+  .menu-item .item-name { font-size: 0.95rem; }
+  .menu-item .item-desc { font-size: 0.8rem; margin-bottom: 0.4rem; min-height: auto; }
+  .menu-item .item-price { font-size: 1.1rem; margin-bottom: 0.5rem; }
   .cart-panel { flex-direction: column; gap: 0.5rem; padding: 0.8rem; }
   .login-box { padding: 2rem 1.5rem; }
   .order-type-select { flex-direction: column; }

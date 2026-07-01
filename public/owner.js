@@ -91,6 +91,11 @@ function logout() {
   location.reload();
 }
 
+// Enter key support for login
+document.getElementById('loginPassword').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') doLogin();
+});
+
 function authHeaders() {
   return { 'Authorization': 'Bearer ' + token };
 }
@@ -200,12 +205,33 @@ function generateQR() {
     .then(data => {
       document.getElementById('qrImage').src = data.qr;
       document.getElementById('qrUrl').textContent = data.url;
+      // Add share button
+      let shareBtn = document.getElementById('qrShareBtn');
+      if (!shareBtn) {
+        shareBtn = document.createElement('button');
+        shareBtn.id = 'qrShareBtn';
+        shareBtn.className = 'btn btn-outline btn-sm mt-1';
+        document.querySelector('.qr-section').appendChild(shareBtn);
+      }
+      shareBtn.textContent = '📤 مشاركة QR';
+      shareBtn.onclick = () => {
+        if (navigator.share) {
+          fetch(data.qr).then(r => r.blob()).then(blob => {
+            const file = new File([blob], 'menu-qr.png', { type: 'image/png' });
+            navigator.share({ files: [file], title: 'قائمة كاراكالا كافيه' }).catch(() => {});
+          }).catch(() => {
+            navigator.share({ title: 'قائمة كاراكالا كافيه', url: data.url }).catch(() => {});
+          });
+        } else {
+          navigator.clipboard.writeText(data.url).then(() => showToast('تم نسخ الرابط! 📋', 'success')).catch(() => {});
+        }
+      };
     });
 }
 
 function generateTableQR() {
   const tableNum = document.getElementById('tableQrInput').value;
-  if (!tableNum) return showToast('أدخل رقم الطاولة أولاً 🪑', 'warning');
+  if (!tableNum) return showToast('أدخل رقم الطاولة', 'warning');
   const tableUrl = window.location.origin + '/menu?table=' + encodeURIComponent(tableNum);
   const container = document.getElementById('tableQrResult');
   container.innerHTML = '<p style="color:var(--text-muted);font-size:0.8rem;">جاري إنشاء الرمز...</p>';
@@ -215,8 +241,29 @@ function generateTableQR() {
       container.innerHTML = `
         <img src="${data.qr}" style="max-width:200px;border:1px solid var(--border);border-radius:var(--radius);margin-bottom:0.5rem;">
         <p style="font-size:0.8rem;color:var(--text-muted);word-break:break-all;">${data.url}</p>
-        <button class="btn btn-outline btn-sm" onclick="window.open('${data.qr}');">🖨️ طباعة</button>
+        <div class="flex gap-1 mt-1" style="justify-content:center;">
+          <button class="btn btn-outline btn-sm" id="tableQrShareBtn">📤 مشاركة</button>
+          <button class="btn btn-outline btn-sm" id="tableQrPrintBtn">🖨️ طباعة</button>
+        </div>
       `;
+      document.getElementById('tableQrShareBtn').onclick = () => {
+        if (navigator.share) {
+          fetch(data.qr).then(r => r.blob()).then(blob => {
+            const file = new File([blob], 'table-qr.png', { type: 'image/png' });
+            navigator.share({ files: [file], title: 'QR طاولة ' + tableNum }).catch(() => {});
+          }).catch(() => {
+            navigator.clipboard.writeText(data.url).then(() => showToast('تم نسخ الرابط!', 'success')).catch(() => {});
+          });
+        } else {
+          navigator.clipboard.writeText(data.url).then(() => showToast('تم نسخ الرابط!', 'success')).catch(() => {});
+        }
+      };
+      document.getElementById('tableQrPrintBtn').onclick = () => {
+        const w = window.open('', '_blank');
+        w.document.write(`<html><body style="text-align:center;padding:2rem;"><img src="${data.qr}" style="width:300px;height:300px;"><p style="font-size:1.2rem;font-weight:bold;margin-top:1rem;">طاولة ${tableNum}</p><p>${data.url}</p></body></html>`);
+        w.document.close();
+        w.onload = () => { w.print(); setTimeout(() => w.close(), 500); };
+      };
     })
     .catch(() => {
       container.innerHTML = '<p style="color:var(--danger);font-size:0.8rem;">فشل إنشاء الرمز</p>';

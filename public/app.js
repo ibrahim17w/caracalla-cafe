@@ -461,8 +461,17 @@ function showCustomerReceipt() {
   document.getElementById('customerReceiptModal').classList.remove('hidden');
 }
 
-function printCustomerReceipt() {
-  window.print();
+function copyReceiptText() {
+  const text = document.getElementById('customerReceiptContent').innerText;
+  if (navigator.clipboard) {
+    navigator.clipboard.writeText(text).then(() => {
+      showToast('تم نسخ الفاتورة! 📋', 'success');
+    }).catch(() => {
+      showToast('حدد النص وانسخه يدوياً', 'warning');
+    });
+  } else {
+    showToast('حدد النص وانسخه يدوياً', 'warning');
+  }
 }
 
 function closeCustomerReceipt() {
@@ -696,6 +705,10 @@ function toggleTheme() {
 loadCart();
 updateCartUI();
 loadMenu();
+
+document.getElementById('trackOrderId').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') trackOrder();
+});
 
 // Handle #track hash from splash screen
 if (window.location.hash === '#track') {

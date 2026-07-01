@@ -50,6 +50,20 @@ function showConfirm(message, title = 'تأكيد', icon = '⚠️') {
 
     document.body.appendChild(overlay);
 
+    overlay.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        overlay.remove();
+        resolve(true);
+      }
+      if (e.key === 'Escape') {
+        overlay.remove();
+        resolve(false);
+      }
+    });
+    // Focus the yes button
+    setTimeout(() => overlay.querySelector('#confirmYes')?.focus(), 50);
+
     overlay.querySelector('#confirmYes').addEventListener('click', () => {
       overlay.remove();
       resolve(true);
