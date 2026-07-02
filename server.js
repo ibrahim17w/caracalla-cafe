@@ -332,6 +332,13 @@ app.get('/api/orders', verifyToken, requireRole(['owner', 'driver']), async (req
         const addResult = await pool.query('SELECT * FROM order_item_additions WHERE order_item_id = $1', [item.id]);
         item.additions = addResult.rows;
       }
+      // Compute daily order number
+      const today = getSyriaDate();
+      const countResult = await pool.query(
+        "SELECT COUNT(*) FROM orders WHERE DATE(created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Damascus') = $1 AND id <= $2",
+        [today, order.id]
+      );
+      order.daily_order_number = parseInt(countResult.rows[0].count);
     }
     res.json(orders);
   } catch (err) { res.status(500).json({ error: err.message }); }
@@ -368,6 +375,13 @@ app.post('/api/orders', rateLimitOrders, async (req, res) => {
       [customer_name || null, phone || null, table_number || null, order_type || 'dine_in', address_text || null, latitude || null, longitude || null, 'pending', total, notes || '']
     );
     const order = orderResult.rows[0];
+    // Compute daily order number
+    const today = getSyriaDate();
+    const countResult = await client.query(
+      "SELECT COUNT(*) FROM orders WHERE DATE(created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Damascus') = $1 AND id <= $2",
+      [today, order.id]
+    );
+    order.daily_order_number = parseInt(countResult.rows[0].count);
     for (const it of items) {
       const itemSubtotal = it.price * it.quantity + (it.additions || []).reduce((s, a) => s + (a.price || 0) * it.quantity, 0);
       const oiResult = await client.query(
@@ -489,6 +503,19 @@ app.put('/api/orders/:id/customer-status', async (req, res) => {
     await client.query('ROLLBACK');
     res.status(500).json({ error: err.message });
   } finally { client.release(); }
+});
+
+// ===================== ORDER EDIT (owner only) =====================
+app.put('/api/orders/:id', verifyToken, requireRole(['owner']), async (req, res) => {
+  const { customer_name, phone, table_number, order_type, address_text, latitude, longitude, status, notes } = req.body;
+  try {
+    const result = await pool.query(
+      'UPDATE orders SET customer_name = $1, phone = $2, table_number = $3, order_type = $4, address_text = $5, latitude = $6, longitude = $7, status = $8, notes = $9, updated_at = CURRENT_TIMESTAMP WHERE id = $10 RETURNING *',
+      [customer_name || null, phone || null, table_number || null, order_type || 'dine_in', address_text || null, latitude || null, longitude || null, status, notes || '', req.params.id]
+    );
+    if (result.rows.length === 0) return res.status(404).json({ error: 'Order not found' });
+    res.json(result.rows[0]);
+  } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
 // ===================== QR CODE =====================

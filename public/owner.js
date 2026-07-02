@@ -808,7 +808,7 @@ function renderOrderCard(order) {
   card.innerHTML = `
     <div class="order-header">
       <div class="order-title">
-        <strong style="font-size:1.1rem;">طلب #${order.id}</strong>
+        <strong style="font-size:1.1rem;">طلب #${order.daily_order_number || order.id}</strong>
         <span class="badge badge-${order.status}">${getStatusLabel(order.status)}</span>
       </div>
       <div class="order-meta">${metaLines}</div>
