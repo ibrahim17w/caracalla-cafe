@@ -108,6 +108,16 @@ async function init() {
   renderOrders();
   populateCategorySelects();
   applySettings();
+  
+  // Global order polling — runs regardless of active tab
+  if (ownerRefreshInterval) clearInterval(ownerRefreshInterval);
+  ownerRefreshInterval = setInterval(async () => {
+    await loadOrders();
+    // Only re-render if on orders tab, but always check for new orders
+    const ordersTabActive = document.querySelector('.tab.active')?.textContent?.includes('الطلبات');
+    if (ordersTabActive) renderOrders();
+    loadStats();
+  }, 10000);
 }
 
 async function loadSettings() {
@@ -296,7 +306,6 @@ function printQR() {
   w.print();
 }
 
-// ===================== TABS =====================
 function switchTab(tab, el) {
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
   el.classList.add('active');
@@ -306,13 +315,6 @@ function switchTab(tab, el) {
   if (tab === 'orders') {
     loadOrders().then(renderOrders);
     loadStats();
-    if (ownerRefreshInterval) clearInterval(ownerRefreshInterval);
-    ownerRefreshInterval = setInterval(() => {
-      loadOrders().then(renderOrders);
-      loadStats();
-    }, 10000);
-  } else {
-    if (ownerRefreshInterval) { clearInterval(ownerRefreshInterval); ownerRefreshInterval = null; }
   }
   if (tab === 'items') loadItems().then(() => renderItems());
   if (tab === 'categories') loadCategories().then(renderCategories);
