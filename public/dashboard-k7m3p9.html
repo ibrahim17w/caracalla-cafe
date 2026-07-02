@@ -255,6 +255,56 @@
     </div>
   </div>
 
+  <!-- Order Edit Modal -->
+  <div class="modal-overlay hidden" id="orderEditModal">
+    <div class="modal" style="max-width:500px;">
+      <h2>✏️ تعديل الطلب #<span id="editOrderId"></span></h2>
+      <input type="hidden" id="editOrderIdVal">
+      <div class="form-group">
+        <label>الاسم</label>
+        <input type="text" id="editOrderName" placeholder="اسم الزبون">
+      </div>
+      <div class="form-group">
+        <label>الهاتف</label>
+        <input type="text" id="editOrderPhone" placeholder="رقم الهاتف">
+      </div>
+      <div class="form-group">
+        <label>نوع الطلب</label>
+        <select id="editOrderType">
+          <option value="dine_in">🍽️ داخل المقهى</option>
+          <option value="delivery">🛵 توصيل</option>
+        </select>
+      </div>
+      <div class="form-group" id="editOrderTableGroup">
+        <label>رقم الطاولة</label>
+        <input type="text" id="editOrderTable" placeholder="رقم الطاولة">
+      </div>
+      <div class="form-group" id="editOrderAddressGroup">
+        <label>العنوان</label>
+        <input type="text" id="editOrderAddress" placeholder="عنوان التوصيل">
+      </div>
+      <div class="form-group">
+        <label>الحالة</label>
+        <select id="editOrderStatus">
+          <option value="pending">⏳ قيد الانتظار</option>
+          <option value="preparing">👨‍🍳 قيد التحضير</option>
+          <option value="ready">✅ جاهز</option>
+          <option value="delivering">🛵 في الطريق</option>
+          <option value="completed">✔️ مكتمل</option>
+          <option value="cancelled">❌ ملغى</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>ملاحظات</label>
+        <textarea id="editOrderNotes" rows="2" placeholder="ملاحظات الطلب"></textarea>
+      </div>
+      <div class="flex gap-1 mt-1">
+        <button class="btn btn-success" onclick="saveOrderEdit()">💾 حفظ</button>
+        <button class="btn" onclick="closeOrderEditModal()" style="background:#eee;color:var(--text);">إلغاء</button>
+      </div>
+    </div>
+  </div>
+
   <!-- New Order Notification Modal -->
   <div class="modal-overlay hidden" id="orderNotificationModal">
     <div class="modal text-center" style="max-width:400px;">
