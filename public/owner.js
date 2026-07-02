@@ -1061,15 +1061,42 @@ async function saveSettings() {
     settings.push({ key: 'order_notifications', value: notifToggle.checked ? 'true' : 'false' });
   }
 
-  for (const s of settings) {
-    await fetch(`${API}/settings`, {
-      method: 'POST',
-      headers: { ...authHeaders(), 'Content-Type': 'application/json' },
-      body: JSON.stringify(s)
-    });
+  // Also save receipt footer and fields
+  settings.push({ key: 'receipt_footer', value: document.getElementById('setReceiptFooter').value });
+  const rows = document.querySelectorAll('#receiptCustomFields .receipt-field-row');
+  let idx = 1;
+  for (const row of rows) {
+    const name = row.querySelector('.field-name').value.trim();
+    const value = row.querySelector('.field-value').value.trim();
+    if (name && idx <= 10) {
+      settings.push({ key: `receipt_field_${idx}_name`, value: name });
+      settings.push({ key: `receipt_field_${idx}_value`, value: value });
+      idx++;
+    }
+  }
+  // Clear old receipt fields beyond current count
+  for (let i = idx; i <= 10; i++) {
+    await fetch(`${API}/settings/receipt_field_${i}_name`, { method: 'DELETE', headers: authHeaders() });
+    await fetch(`${API}/settings/receipt_field_${i}_value`, { method: 'DELETE', headers: authHeaders() });
   }
 
-  showToast('تم حفظ الإعدادات بنجاح! ✅', 'success');
+  let allSuccess = true;
+  for (const s of settings) {
+    try {
+      const res = await fetch(`${API}/settings`, {
+        method: 'POST',
+        headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+        body: JSON.stringify(s)
+      });
+      if (!res.ok) allSuccess = false;
+    } catch (e) { allSuccess = false; }
+  }
+
+  if (allSuccess) {
+    showToast('تم حفظ الإعدادات بنجاح! ✅', 'success');
+  } else {
+    showToast('حدث خطأ أثناء الحفظ، يرجى تسجيل الدخول مجدداً ❌', 'error');
+  }
   await loadSettings();
   applySettings();
 }
@@ -1119,23 +1146,23 @@ async function saveReceiptSettings() {
 
   // Save new fields
   let idx = 1;
-  rows.forEach(row => {
+  for (const row of rows) {
     const name = row.querySelector('.field-name').value.trim();
     const value = row.querySelector('.field-value').value.trim();
     if (name && idx <= 10) {
-      fetch(`${API}/settings`, {
+      await fetch(`${API}/settings`, {
         method: 'POST',
         headers: { ...authHeaders(), 'Content-Type': 'application/json' },
         body: JSON.stringify({ key: `receipt_field_${idx}_name`, value: name })
       });
-      fetch(`${API}/settings`, {
+      await fetch(`${API}/settings`, {
         method: 'POST',
         headers: { ...authHeaders(), 'Content-Type': 'application/json' },
         body: JSON.stringify({ key: `receipt_field_${idx}_value`, value: value })
       });
       idx++;
     }
-  });
+  }
 
   await fetch(`${API}/settings`, {
     method: 'POST',
@@ -1145,6 +1172,7 @@ async function saveReceiptSettings() {
 
   showToast('تم حفظ إعدادات الفاتورة بنجاح! ✅', 'success');
   await loadSettings();
+  applySettings();
 }
 
 document.addEventListener('click', (e) => {
