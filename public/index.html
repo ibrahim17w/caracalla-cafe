@@ -57,13 +57,30 @@
     }
     .splash-contact {
       margin-top: 2rem;
-      color: var(--text-muted);
-      font-size: 0.9rem;
-      line-height: 2;
+      color: var(--text);
+      font-size: 1rem;
+      line-height: 2.2;
+      background: var(--white);
+      padding: 1.5rem 2rem;
+      border-radius: var(--radius-sm);
+      box-shadow: var(--shadow);
+      max-width: 400px;
+      width: 100%;
     }
     .splash-contact a {
       color: var(--primary);
       text-decoration: none;
+      font-weight: 700;
+    }
+    .splash-contact a:hover {
+      text-decoration: underline;
+    }
+    .splash-contact .contact-item {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      font-size: 1.05rem;
     }
     .splash-links {
       margin-top: 1.5rem;
@@ -164,8 +181,8 @@
         }
 
         let contactHtml = '';
-        if (settings.cafe_phone) contactHtml += `<div>📞 <a href="tel:${settings.cafe_phone}">${settings.cafe_phone}</a></div>`;
-        if (settings.cafe_address) contactHtml += `<div>📍 ${settings.cafe_address}</div>`;
+        if (settings.cafe_phone) contactHtml += `<div class="contact-item">📞 <a href="tel:${settings.cafe_phone}">${settings.cafe_phone}</a></div>`;
+        if (settings.cafe_address) contactHtml += `<div class="contact-item">📍 ${settings.cafe_address}</div>`;
         document.getElementById('splashContact').innerHTML = contactHtml || '';
       } catch (e) {
         document.getElementById('splashContact').innerHTML = '';

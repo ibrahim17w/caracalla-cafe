@@ -200,11 +200,21 @@ function formatTime(dateStr) {
 
 // ===================== QR CODE =====================
 function generateQR() {
+  const cafeName = allSettings.cafe_name || 'كاراكالا كافيه';
   fetch(`${API}/qrcode`)
     .then(r => r.json())
     .then(data => {
       document.getElementById('qrImage').src = data.qr;
       document.getElementById('qrUrl').textContent = data.url;
+      // Add cafe name label below QR
+      let qrLabel = document.getElementById('qrLabel');
+      if (!qrLabel) {
+        qrLabel = document.createElement('div');
+        qrLabel.id = 'qrLabel';
+        qrLabel.style.cssText = 'font-weight:700;color:var(--primary);margin-top:0.5rem;font-size:1.1rem;';
+        document.querySelector('.qr-section').appendChild(qrLabel);
+      }
+      qrLabel.textContent = `${cafeName} - القائمة`;
       // Add share button
       let shareBtn = document.getElementById('qrShareBtn');
       if (!shareBtn) {
@@ -218,9 +228,9 @@ function generateQR() {
         if (navigator.share) {
           fetch(data.qr).then(r => r.blob()).then(blob => {
             const file = new File([blob], 'menu-qr.png', { type: 'image/png' });
-            navigator.share({ files: [file], title: 'قائمة كاراكالا كافيه' }).catch(() => {});
+            navigator.share({ files: [file], title: `${cafeName} - القائمة` }).catch(() => {});
           }).catch(() => {
-            navigator.share({ title: 'قائمة كاراكالا كافيه', url: data.url }).catch(() => {});
+            navigator.share({ title: `${cafeName} - القائمة`, url: data.url }).catch(() => {});
           });
         } else {
           navigator.clipboard.writeText(data.url).then(() => showToast('تم نسخ الرابط! 📋', 'success')).catch(() => {});
@@ -232,6 +242,7 @@ function generateQR() {
 function generateTableQR() {
   const tableNum = document.getElementById('tableQrInput').value;
   if (!tableNum) return showToast('أدخل رقم الطاولة', 'warning');
+  const cafeName = allSettings.cafe_name || 'كاراكالا كافيه';
   const tableUrl = window.location.origin + '/menu?table=' + encodeURIComponent(tableNum);
   const container = document.getElementById('tableQrResult');
   container.innerHTML = '<p style="color:var(--text-muted);font-size:0.8rem;">جاري إنشاء الرمز...</p>';
@@ -240,6 +251,7 @@ function generateTableQR() {
     .then(data => {
       container.innerHTML = `
         <img src="${data.qr}" style="max-width:200px;border:1px solid var(--border);border-radius:var(--radius);margin-bottom:0.5rem;">
+        <div style="font-weight:700;color:var(--primary);font-size:1.1rem;margin-bottom:0.3rem;">${cafeName} - طاولة ${tableNum}</div>
         <p style="font-size:0.8rem;color:var(--text-muted);word-break:break-all;">${data.url}</p>
         <div class="flex gap-1 mt-1" style="justify-content:center;">
           <button class="btn btn-outline btn-sm" id="tableQrShareBtn">📤 مشاركة</button>
@@ -250,7 +262,7 @@ function generateTableQR() {
         if (navigator.share) {
           fetch(data.qr).then(r => r.blob()).then(blob => {
             const file = new File([blob], 'table-qr.png', { type: 'image/png' });
-            navigator.share({ files: [file], title: 'QR طاولة ' + tableNum }).catch(() => {});
+            navigator.share({ files: [file], title: `${cafeName} - طاولة ${tableNum}` }).catch(() => {});
           }).catch(() => {
             navigator.clipboard.writeText(data.url).then(() => showToast('تم نسخ الرابط!', 'success')).catch(() => {});
           });
@@ -260,7 +272,7 @@ function generateTableQR() {
       };
       document.getElementById('tableQrPrintBtn').onclick = () => {
         const w = window.open('', '_blank');
-        w.document.write(`<html><body style="text-align:center;padding:2rem;"><img src="${data.qr}" style="width:300px;height:300px;"><p style="font-size:1.2rem;font-weight:bold;margin-top:1rem;">طاولة ${tableNum}</p><p>${data.url}</p></body></html>`);
+        w.document.write(`<html><body style="text-align:center;padding:2rem;"><img src="${data.qr}" style="width:300px;height:300px;"><p style="font-size:1.2rem;font-weight:bold;margin-top:1rem;">${cafeName} - طاولة ${tableNum}</p><p>${data.url}</p></body></html>`);
         w.document.close();
         w.onload = () => { w.print(); setTimeout(() => w.close(), 500); };
       };
