@@ -258,7 +258,12 @@ function removeCartItem(idx) {
   cart.splice(idx, 1);
   saveCart();
   updateCartUI();
-  openCheckout();
+  if (cart.length === 0) {
+    closeCheckout();
+    showToast('تم إفراغ السلة 🛒', 'info');
+  } else {
+    openCheckout();
+  }
 }
 
 function closeCheckout() {
@@ -411,7 +416,7 @@ async function submitOrder() {
     window.lastOrder = order;
     window.lastOrderItems = cart.map(c => ({...c})); // save copy of cart items
 
-    document.getElementById('successOrderId').textContent = '#' + order.id;
+    document.getElementById('successOrderId').textContent = '#' + (order.daily_order_number || order.id);
     document.getElementById('successModal').classList.remove('hidden');
 
     clearCart();
@@ -447,7 +452,7 @@ function showCustomerReceipt() {
       <div class="receipt-header" style="text-align:center;">
         <h3>${cafeName}</h3>
       </div>
-      <div style="display:flex;justify-content:space-between;margin-bottom:0.3rem;font-size:0.9rem;"><span>رقم الطلب:</span><span>#${order.id}</span></div>
+      <div style="display:flex;justify-content:space-between;margin-bottom:0.3rem;font-size:0.9rem;"><span>رقم الطلب:</span><span>#${order.daily_order_number || order.id}</span></div>
       <div style="display:flex;justify-content:space-between;margin-bottom:0.3rem;font-size:0.9rem;"><span>التاريخ:</span><span>${new Date(order.created_at).toLocaleString('ar-SY')}</span></div>
       <hr style="border:1px dashed var(--border);margin:0.5rem 0;">
       ${itemsHtml}
@@ -555,7 +560,7 @@ async function trackOrder() {
   if (!orderId) return;
 
   try {
-    const res = await fetch(`${API}/orders/${orderId}`);
+    const res = await fetch(`${API}/orders/track/${orderId}`);
     if (!res.ok) throw new Error('Order not found');
     const order = await res.json();
 
@@ -569,7 +574,7 @@ async function trackOrder() {
     };
 
     const isDelivery = order.order_type === 'delivery';
-    const steps = isDelivery ? [
+        const steps = isDelivery ? [
       { key: 'pending', label: 'تم الاستلام', icon: '📥' },
       { key: 'preparing', label: 'قيد التحضير', icon: '👨‍🍳' },
       { key: 'ready', label: 'جاهز', icon: '✅' },
@@ -585,9 +590,9 @@ async function trackOrder() {
     const currentStepIndex = steps.findIndex(s => s.key === order.status);
     const isCancelled = order.status === 'cancelled';
 
-    let timelineHtml = '<div style="display:flex;justify-content:space-between;position:relative;margin:1.5rem 0;padding:0 0.5rem;">';
+    let timelineHtml = '<div class="order-tracker">';
     if (steps.length > 1) {
-      timelineHtml += '<div style="position:absolute;top:24px;left:8%;right:8%;height:3px;background:var(--border);z-index:0;"></div>';
+      timelineHtml += '<div class="tracker-line"></div>';
     }
     
     steps.forEach((step, idx) => {
@@ -601,19 +606,18 @@ async function trackOrder() {
       const color = state === 'completed' ? 'var(--success)' : (state === 'cancelled' ? 'var(--danger)' : 'var(--border)');
       const bg = state === 'completed' ? '#E8F5E9' : (state === 'cancelled' ? '#FFEBEE' : 'var(--cream)');
       const icon = state === 'completed' ? '✓' : step.icon;
-      const textColor = state === 'upcoming' ? 'var(--text-muted)' : color;
+      const textColor = state === 'upcoming' ? 'var(--text-muted)' : (state === 'cancelled' ? 'var(--danger)' : 'var(--text)');
       
       timelineHtml += `
-        <div style="display:flex;flex-direction:column;align-items:center;position:relative;z-index:1;flex:1;">
-          <div style="width:50px;height:50px;border-radius:50%;background:${bg};border:3px solid ${color};display:flex;align-items:center;justify-content:center;font-size:1.3rem;margin-bottom:0.5rem;box-shadow:0 2px 8px rgba(0,0,0,0.1);color:${color};">
+        <div class="tracker-step ${state}">
+          <div class="tracker-circle" style="background:${bg};border-color:${color};color:${color};">
             ${icon}
           </div>
-          <div style="font-size:0.75rem;font-weight:700;color:${textColor};text-align:center;white-space:nowrap;">${step.label}</div>
+          <div class="tracker-label" style="color:${textColor};">${step.label}</div>
         </div>
       `;
     });
     timelineHtml += '</div>';
-
     let html = `
       <div class="card" style="margin-top:1rem;">
         <div style="text-align:center;margin-bottom:1rem;">

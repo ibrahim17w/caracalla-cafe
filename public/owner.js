@@ -205,7 +205,6 @@ function generateQR() {
     .then(data => {
       document.getElementById('qrImage').src = data.qr;
       document.getElementById('qrUrl').textContent = data.url;
-      // Add cafe name label below QR
       let qrLabel = document.getElementById('qrLabel');
       if (!qrLabel) {
         qrLabel = document.createElement('div');
@@ -214,27 +213,6 @@ function generateQR() {
         document.querySelector('.qr-section').appendChild(qrLabel);
       }
       qrLabel.textContent = `${cafeName} - القائمة`;
-      // Add share button
-      let shareBtn = document.getElementById('qrShareBtn');
-      if (!shareBtn) {
-        shareBtn = document.createElement('button');
-        shareBtn.id = 'qrShareBtn';
-        shareBtn.className = 'btn btn-outline btn-sm mt-1';
-        document.querySelector('.qr-section').appendChild(shareBtn);
-      }
-      shareBtn.textContent = '📤 مشاركة QR';
-      shareBtn.onclick = () => {
-        if (navigator.share) {
-          fetch(data.qr).then(r => r.blob()).then(blob => {
-            const file = new File([blob], 'menu-qr.png', { type: 'image/png' });
-            navigator.share({ files: [file], title: `${cafeName} - القائمة` }).catch(() => {});
-          }).catch(() => {
-            navigator.share({ title: `${cafeName} - القائمة`, url: data.url }).catch(() => {});
-          });
-        } else {
-          navigator.clipboard.writeText(data.url).then(() => showToast('تم نسخ الرابط! 📋', 'success')).catch(() => {});
-        }
-      };
     });
 }
 
@@ -257,16 +235,21 @@ function generateTableQR() {
           <button class="btn btn-outline btn-sm" id="tableQrPrintBtn">🖨️ طباعة</button>
         </div>
       `;
-      document.getElementById('tableQrShareBtn').onclick = () => {
+       document.getElementById('tableQrShareBtn').onclick = () => {
+        const tableText = `${cafeName} - طاولة ${tableNum}: ${data.url}`;
         if (navigator.share) {
           fetch(data.qr).then(r => r.blob()).then(blob => {
             const file = new File([blob], 'table-qr.png', { type: 'image/png' });
-            navigator.share({ files: [file], title: `${cafeName} - طاولة ${tableNum}` }).catch(() => {});
+            navigator.share({ files: [file], title: `${cafeName} - طاولة ${tableNum}`, text: tableText, url: data.url }).catch(() => {
+              navigator.clipboard.writeText(tableText).then(() => showToast('تم نسخ الرابط!', 'success'));
+            });
           }).catch(() => {
-            navigator.clipboard.writeText(data.url).then(() => showToast('تم نسخ الرابط!', 'success')).catch(() => {});
+            navigator.share({ title: `${cafeName} - طاولة ${tableNum}`, text: tableText, url: data.url }).catch(() => {
+              navigator.clipboard.writeText(tableText).then(() => showToast('تم نسخ الرابط!', 'success'));
+            });
           });
         } else {
-          navigator.clipboard.writeText(data.url).then(() => showToast('تم نسخ الرابط!', 'success')).catch(() => {});
+          navigator.clipboard.writeText(tableText).then(() => showToast('تم نسخ الرابط!', 'success'));
         }
       };
       document.getElementById('tableQrPrintBtn').onclick = () => {
@@ -285,8 +268,22 @@ function shareQR() {
   const cafeName = allSettings.cafe_name || 'كاراكالا كافيه';
   const url = document.getElementById('qrUrl').textContent;
   const text = `${cafeName} - القائمة: ${url}`;
-  if (navigator.share) {
-    navigator.share({ title: cafeName, text: text, url: url });
+  const qrSrc = document.getElementById('qrImage').src;
+  
+  if (navigator.share && qrSrc) {
+    fetch(qrSrc)
+      .then(r => r.blob())
+      .then(blob => {
+        const file = new File([blob], 'menu-qr.png', { type: 'image/png' });
+        navigator.share({ files: [file], title: cafeName, text: text, url: url }).catch(() => {
+          navigator.clipboard.writeText(text).then(() => showToast('تم نسخ الرابط إلى الحافظة 📋', 'success'));
+        });
+      })
+      .catch(() => {
+        navigator.share({ title: cafeName, text: text, url: url }).catch(() => {
+          navigator.clipboard.writeText(text).then(() => showToast('تم نسخ الرابط إلى الحافظة 📋', 'success'));
+        });
+      });
   } else {
     navigator.clipboard.writeText(text).then(() => showToast('تم نسخ الرابط إلى الحافظة 📋', 'success'));
   }
@@ -616,7 +613,7 @@ function printKitchenTicket(orderId) {
       @media print { body { padding: 0; } }
     </style></head>
     <body>
-      <h2>🍳 طلب مطبخ #${order.id}</h2>
+           <h2>🍳 طلب مطبخ #${order.daily_order_number || order.id}</h2>
       <div class="meta">${order.order_type === 'delivery' ? '🛵 توصيل' : '🍽️ داخل المقهى'} ${order.table_number ? '— طاولة ' + order.table_number : ''}</div>
       <div class="items">${itemsHtml}</div>
       ${order.notes ? `<div class="notes">📌 ملاحظة: ${order.notes}</div>` : ''}
@@ -1004,7 +1001,7 @@ async function generateReceipt(orderId) {
         ${cafePhone ? `<div style="font-size:0.8rem;color:var(--text-muted);">📞 ${cafePhone}</div>` : ''}
         ${cafeAddress ? `<div style="font-size:0.8rem;color:var(--text-muted);">${cafeAddress}</div>` : ''}
       </div>
-      <div class="receipt-line"><span>رقم الطلب:</span><span>#${order.id}</span></div>
+      <div class="receipt-line"><span>رقم الطلب:</span><span>#${order.daily_order_number || order.id}</span></div>
       <div class="receipt-line"><span>التاريخ:</span><span>${formatTime(order.created_at)}</span></div>
       <div class="receipt-line"><span>الزبون:</span><span>${order.customer_name || 'زبون'}</span></div>
       ${customFieldsHtml ? '<hr style="border:1px dashed var(--border);margin:0.5rem 0;">' + customFieldsHtml : ''}

@@ -1083,3 +1083,68 @@ input[type="file"] {
   width: 100%;
 }
 .receipt-share-btn:hover { background: var(--primary-dark); }
+/* ===== ORDER TRACKER ===== */
+.order-tracker {
+  display: flex;
+  justify-content: space-between;
+  position: relative;
+  margin: 1.5rem 0;
+  padding: 0 0.5rem;
+}
+
+.tracker-line {
+  position: absolute;
+  top: 24px;
+  left: 10%;
+  right: 10%;
+  height: 3px;
+  background: var(--border);
+  z-index: 0;
+}
+
+.tracker-step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+  z-index: 1;
+  flex: 1;
+}
+
+.tracker-circle {
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  border: 3px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.3rem;
+  margin-bottom: 0.5rem;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  background: var(--cream);
+}
+
+.tracker-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-align: center;
+  white-space: nowrap;
+}
+
+@media (max-width: 768px) {
+  .order-tracker {
+    padding: 0;
+  }
+  .tracker-circle {
+    width: 40px;
+    height: 40px;
+    font-size: 1rem;
+  }
+  .tracker-label {
+    font-size: 0.65rem;
+  }
+  .tracker-line {
+    top: 20px;
+  }
+}
