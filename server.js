@@ -332,11 +332,11 @@ app.get('/api/orders', verifyToken, requireRole(['owner', 'driver']), async (req
         const addResult = await pool.query('SELECT * FROM order_item_additions WHERE order_item_id = $1', [item.id]);
         item.additions = addResult.rows;
       }
-      // Compute daily order number
-      const today = getSyriaDate();
+      // Compute daily order number based on order's creation date
+      const orderDate = getSyriaDate(new Date(order.created_at));
       const countResult = await pool.query(
         "SELECT COUNT(*) FROM orders WHERE DATE(created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Damascus') = $1 AND id <= $2",
-        [today, order.id]
+        [orderDate, order.id]
       );
       order.daily_order_number = parseInt(countResult.rows[0].count);
     }
@@ -355,6 +355,13 @@ app.get('/api/orders/:id', async (req, res) => {
       const addResult = await pool.query('SELECT * FROM order_item_additions WHERE order_item_id = $1', [item.id]);
       item.additions = addResult.rows;
     }
+    // Compute daily order number based on order's creation date
+    const orderDate = getSyriaDate(new Date(order.created_at));
+    const countResult = await pool.query(
+      "SELECT COUNT(*) FROM orders WHERE DATE(created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Damascus') = $1 AND id <= $2",
+      [orderDate, order.id]
+    );
+    order.daily_order_number = parseInt(countResult.rows[0].count);
     res.json(order);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -376,10 +383,10 @@ app.post('/api/orders', rateLimitOrders, async (req, res) => {
     );
     const order = orderResult.rows[0];
     // Compute daily order number
-    const today = getSyriaDate();
+    const orderDate = getSyriaDate(new Date(order.created_at));
     const countResult = await client.query(
       "SELECT COUNT(*) FROM orders WHERE DATE(created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Damascus') = $1 AND id <= $2",
-      [today, order.id]
+      [orderDate, order.id]
     );
     order.daily_order_number = parseInt(countResult.rows[0].count);
     for (const it of items) {
@@ -527,15 +534,14 @@ app.get('/api/qrcode', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-function getSyriaDate() {
+function getSyriaDate(d = new Date()) {
   const formatter = new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Damascus', year: 'numeric', month: '2-digit', day: '2-digit' });
-  const parts = formatter.formatToParts(new Date());
+  const parts = formatter.formatToParts(d);
   const year = parts.find(p => p.type === 'year').value;
   const month = parts.find(p => p.type === 'month').value;
   const day = parts.find(p => p.type === 'day').value;
   return `${year}-${month}-${day}`;
 }
-
 // ===================== STATS =====================
 app.get('/api/stats', verifyToken, requireRole(['owner', 'driver']), async (req, res) => {
   try {

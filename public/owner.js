@@ -155,7 +155,6 @@ async function loadStats() {
 function applySettings() {
   if (allSettings.cafe_name) {
     document.getElementById('navTitle').textContent = allSettings.cafe_name;
-    document.getElementById('setCafeName').value = allSettings.cafe_name;
   }
   if (allSettings.cafe_phone) document.getElementById('setCafePhone').value = allSettings.cafe_phone;
   if (allSettings.cafe_address) document.getElementById('setCafeAddress').value = allSettings.cafe_address;
@@ -881,25 +880,64 @@ async function deleteOrder(orderId) {
 function editOrder(orderId) {
   const order = allOrders.find(o => o.id === orderId);
   if (!order) return;
-  const newName = prompt('تعديل اسم الزبون:', order.customer_name || '');
-  if (newName === null) return;
-  const newPhone = prompt('تعديل رقم الهاتف:', order.phone || '');
-  if (newPhone === null) return;
-  const newTable = prompt('تعديل رقم الطاولة:', order.table_number || '');
-  if (newTable === null) return;
-  const newNotes = prompt('تعديل الملاحظات:', order.notes || '');
-  if (newNotes === null) return;
+  
+  document.getElementById('editOrderId').textContent = order.daily_order_number || order.id;
+  document.getElementById('editOrderIdVal').value = order.id;
+  document.getElementById('editOrderName').value = order.customer_name || '';
+  document.getElementById('editOrderPhone').value = order.phone || '';
+  document.getElementById('editOrderType').value = order.order_type || 'dine_in';
+  document.getElementById('editOrderTable').value = order.table_number || '';
+  document.getElementById('editOrderAddress').value = order.address_text || '';
+  document.getElementById('editOrderStatus').value = order.status;
+  document.getElementById('editOrderNotes').value = order.notes || '';
+  
+  toggleEditOrderType();
+  document.getElementById('orderEditModal').classList.remove('hidden');
+}
 
-  // Update via API (we need to add an edit endpoint or use existing)
-  // For now, we'll update via a custom endpoint
-  fetch(`${API}/orders/${orderId}/status`, {
-    method: 'PUT',
-    headers: { ...authHeaders(), 'Content-Type': 'application/json' },
-    body: JSON.stringify({ status: order.status }) // Keep same status, update other fields
-  }).then(() => {
-    showToast('تم التعديل! (ملاحظة: يجب إضافة endpoint تعديل كامل للطلب) ⚠️', 'warning');
+function toggleEditOrderType() {
+  const type = document.getElementById('editOrderType').value;
+  if (type === 'dine_in') {
+    document.getElementById('editOrderTableGroup').classList.remove('hidden');
+    document.getElementById('editOrderAddressGroup').classList.add('hidden');
+  } else {
+    document.getElementById('editOrderTableGroup').classList.add('hidden');
+    document.getElementById('editOrderAddressGroup').classList.remove('hidden');
+  }
+}
+
+document.getElementById('editOrderType')?.addEventListener('change', toggleEditOrderType);
+
+async function saveOrderEdit() {
+  const id = document.getElementById('editOrderIdVal').value;
+  const payload = {
+    customer_name: document.getElementById('editOrderName').value || null,
+    phone: document.getElementById('editOrderPhone').value || null,
+    order_type: document.getElementById('editOrderType').value,
+    table_number: document.getElementById('editOrderTable').value || null,
+    address_text: document.getElementById('editOrderAddress').value || null,
+    status: document.getElementById('editOrderStatus').value,
+    notes: document.getElementById('editOrderNotes').value || null
+  };
+  
+  try {
+    const res = await fetch(`${API}/orders/${id}`, {
+      method: 'PUT',
+      headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    if (!res.ok) throw new Error('Failed');
+    showToast('تم تحديث الطلب بنجاح! ✅', 'success');
+    closeOrderEditModal();
     loadOrders().then(renderOrders);
-  });
+    loadStats();
+  } catch (e) {
+    showToast('تعذر تحديث الطلب ❌', 'error');
+  }
+}
+
+function closeOrderEditModal() {
+  document.getElementById('orderEditModal').classList.add('hidden');
 }
 
 function showOrderMap(lat, lng, address) {
@@ -1043,7 +1081,6 @@ async function saveSettings() {
   }
 
   const settings = [
-    { key: 'cafe_name', value: document.getElementById('setCafeName').value },
     { key: 'cafe_phone', value: document.getElementById('setCafePhone').value },
     { key: 'cafe_address', value: document.getElementById('setCafeAddress').value },
   ];

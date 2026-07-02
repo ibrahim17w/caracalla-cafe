@@ -568,38 +568,108 @@ async function trackOrder() {
       cancelled: '❌ ملغى'
     };
 
+    const isDelivery = order.order_type === 'delivery';
+    const steps = isDelivery ? [
+      { key: 'pending', label: 'تم الاستلام', icon: '📥' },
+      { key: 'preparing', label: 'قيد التحضير', icon: '👨‍🍳' },
+      { key: 'ready', label: 'جاهز', icon: '✅' },
+      { key: 'delivering', label: 'في الطريق', icon: '🛵' },
+      { key: 'completed', label: 'تم التسليم', icon: '🏠' }
+    ] : [
+      { key: 'pending', label: 'تم الاستلام', icon: '📥' },
+      { key: 'preparing', label: 'قيد التحضير', icon: '👨‍🍳' },
+      { key: 'ready', label: 'جاهز', icon: '✅' },
+      { key: 'completed', label: 'تم التسليم', icon: '🏠' }
+    ];
+
+    const currentStepIndex = steps.findIndex(s => s.key === order.status);
+    const isCancelled = order.status === 'cancelled';
+
+    let timelineHtml = '<div style="display:flex;justify-content:space-between;position:relative;margin:1.5rem 0;padding:0 0.5rem;">';
+    if (steps.length > 1) {
+      timelineHtml += '<div style="position:absolute;top:24px;left:8%;right:8%;height:3px;background:var(--border);z-index:0;"></div>';
+    }
+    
+    steps.forEach((step, idx) => {
+      let state = 'upcoming';
+      if (isCancelled) {
+        state = 'cancelled';
+      } else if (idx <= currentStepIndex) {
+        state = 'completed';
+      }
+      
+      const color = state === 'completed' ? 'var(--success)' : (state === 'cancelled' ? 'var(--danger)' : 'var(--border)');
+      const bg = state === 'completed' ? '#E8F5E9' : (state === 'cancelled' ? '#FFEBEE' : 'var(--cream)');
+      const icon = state === 'completed' ? '✓' : step.icon;
+      const textColor = state === 'upcoming' ? 'var(--text-muted)' : color;
+      
+      timelineHtml += `
+        <div style="display:flex;flex-direction:column;align-items:center;position:relative;z-index:1;flex:1;">
+          <div style="width:50px;height:50px;border-radius:50%;background:${bg};border:3px solid ${color};display:flex;align-items:center;justify-content:center;font-size:1.3rem;margin-bottom:0.5rem;box-shadow:0 2px 8px rgba(0,0,0,0.1);color:${color};">
+            ${icon}
+          </div>
+          <div style="font-size:0.75rem;font-weight:700;color:${textColor};text-align:center;white-space:nowrap;">${step.label}</div>
+        </div>
+      `;
+    });
+    timelineHtml += '</div>';
+
     let html = `
       <div class="card" style="margin-top:1rem;">
         <div style="text-align:center;margin-bottom:1rem;">
-          <div style="font-size:3rem;">${statusLabels[order.status] || order.status}</div>
-        </div>
-        <div class="order-items">
-          ${order.items.map(it => `
-            <div class="order-item-line">
-              <strong>${it.item_name} × ${it.quantity}</strong>
-              ${it.additions && it.additions.length > 0 ? `<div class="order-item-additions">${it.additions.map(a => `+ ${a.addition_name}`).join('، ')}</div>` : ''}
-            </div>
-          `).join('')}
-        </div>
-        <div style="text-align:left;font-weight:800;color:var(--primary);margin-top:1rem;">
-          الإجمالي: ${formatPrice(order.total_amount)}
+          ${timelineHtml}
+          <div style="font-size:1.5rem;font-weight:800;color:var(--primary);margin-top:1rem;">
+            ${isCancelled ? '❌ ملغى' : (statusLabels[order.status] || order.status)}
+          </div>
         </div>
     `;
 
-    // Show delivery location map if it's a delivery order and not yet completed
-    if (order.order_type === 'delivery' && order.latitude && order.longitude && order.status !== 'completed' && order.status !== 'cancelled') {
+    if (isDelivery && order.latitude && order.longitude && !isCancelled) {
       html += `
-        <div class="map-container" id="trackOrderMap" style="height:200px;margin-top:1rem;"></div>
-        <div id="trackOrderDistance" style="margin-top:0.5rem;font-weight:700;color:var(--primary);text-align:center;"></div>
+        <div class="map-container" id="trackOrderMap" style="height:200px;margin:1rem 0;border-radius:var(--radius-sm);"></div>
+        <div id="trackOrderDistance" style="text-align:center;font-weight:700;color:var(--primary);margin-bottom:1rem;"></div>
       `;
     }
 
-    // Mark completed button for all non-completed, non-cancelled orders
-    if (order.status !== 'completed' && order.status !== 'cancelled') {
-      html += `<button class="btn btn-success btn-block mt-1" onclick="confirmReceived(${order.id})">✔️ تأكيد استلام الطلب (إنهاء الطلب)</button>`;
-    }
+    const typeLabel = isDelivery ? '🛵 توصيل' : '🍽️ داخل المقهى';
+    html += `
+      <div style="background:var(--cream);padding:1rem;border-radius:var(--radius-sm);margin-top:1rem;">
+        <div style="display:flex;justify-content:space-between;padding:0.5rem 0;border-bottom:1px solid var(--border);">
+          <span style="color:var(--text-muted);">رقم الطلب:</span>
+          <span style="font-weight:700;">#${order.daily_order_number || order.id}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;padding:0.5rem 0;border-bottom:1px solid var(--border);">
+          <span style="color:var(--text-muted);">الحالة:</span>
+          <span style="font-weight:700;">${statusLabels[order.status] || order.status}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;padding:0.5rem 0;border-bottom:1px solid var(--border);">
+          <span style="color:var(--text-muted);">النوع:</span>
+          <span style="font-weight:700;">${typeLabel}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;padding:0.5rem 0;">
+          <span style="color:var(--text-muted);">الإجمالي:</span>
+          <span style="font-weight:800;color:var(--primary);font-size:1.1rem;">${formatPrice(order.total_amount)}</span>
+        </div>
+      </div>
+    `;
 
-    // Cancel button for pending orders only
+    html += `<div style="margin-top:1rem;"><h4 style="margin-bottom:0.5rem;color:var(--primary-dark);">الأصناف:</h4>`;
+    order.items.forEach(it => {
+      html += `
+        <div style="padding:0.5rem 0;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;">
+          <span>${it.item_name} × ${it.quantity}</span>
+          <span style="font-weight:700;">${formatPrice(it.subtotal)}</span>
+        </div>
+      `;
+      if (it.additions && it.additions.length > 0) {
+        html += `<div style="padding-right:1rem;color:var(--text-muted);font-size:0.85rem;">${it.additions.map(a => `+ ${a.addition_name}`).join('، ')}</div>`;
+      }
+    });
+    html += `</div>`;
+
+    if (!isCancelled && order.status !== 'completed') {
+      html += `<button class="btn btn-success btn-block mt-1" onclick="confirmReceived(${order.id})">✔️ تأكيد استلام الطلب</button>`;
+    }
     if (order.status === 'pending') {
       html += `<button class="btn btn-danger btn-block mt-1" onclick="cancelCustomerOrder(${order.id})">❌ إلغاء الطلب</button>`;
     }
@@ -607,8 +677,7 @@ async function trackOrder() {
     html += '</div>';
     document.getElementById('trackResult').innerHTML = html;
 
-    // Init map if we added one
-    if (order.order_type === 'delivery' && order.latitude && order.longitude && order.status !== 'completed' && order.status !== 'cancelled') {
+    if (isDelivery && order.latitude && order.longitude && !isCancelled) {
       setTimeout(() => {
         const trackMap = L.map('trackOrderMap').setView([order.latitude, order.longitude], 15);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap' }).addTo(trackMap);
@@ -618,20 +687,12 @@ async function trackOrder() {
           const dist = calculateDistance(order.latitude, order.longitude, cafeLocation.lat, cafeLocation.lng);
           document.getElementById('trackOrderDistance').textContent = `المسافة من المقهى: ${dist.toFixed(1)} كم`;
         }
-        if (navigator.geolocation) {
-          navigator.geolocation.getCurrentPosition((pos) => {
-            const userLat = pos.coords.latitude;
-            const userLng = pos.coords.longitude;
-            L.marker([userLat, userLng], { icon: L.divIcon({ className: 'user-marker', html: '<div style="background:#5A8F5A;width:12px;height:12px;border-radius:50%;border:2px solid white;"></div>' }) }).addTo(trackMap);
-          }, () => {});
-        }
       }, 100);
     }
   } catch (e) {
     document.getElementById('trackResult').innerHTML = '<p style="color:var(--danger);text-align:center;margin-top:1rem;">الطلب غير موجود</p>';
   }
 }
-
 async function confirmReceived(orderId) {
   const confirmed = await showConfirm('هل أنت متأكد من استلام الطلب؟ بعد التأكيد لن يتمكن أحد من رؤية موقعك.', 'تأكيد الاستلام', '✅');
   if (!confirmed) return;
