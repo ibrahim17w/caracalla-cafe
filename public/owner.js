@@ -212,7 +212,6 @@ function generateQR() {
         qrLabel.style.cssText = 'font-weight:700;color:var(--primary);margin-top:0.5rem;font-size:1.1rem;';
         document.querySelector('.qr-section').appendChild(qrLabel);
       }
-      qrLabel.textContent = `${cafeName} - القائمة`;
     });
 }
 
