@@ -698,39 +698,48 @@ function renderCategories() {
   `).join('');
 }
 
-async function editCategory(id) {
+let editingCategoryId = null;
+
+function editCategory(id) {
   const cat = allCategories.find(c => c.id === id);
   if (!cat) return;
-  const newName = prompt('اسم القسم:', cat.name);
-  if (newName === null || !newName.trim()) return;
-  const changeImage = confirm('هل تريد تغيير صورة القسم؟');
+  editingCategoryId = id;
   
-  const formData = new FormData();
-  formData.append('name', newName.trim());
-  formData.append('sort_order', cat.sort_order || 0);
+  document.getElementById('editCatName').value = cat.name;
+  document.getElementById('editCatImagePreview').innerHTML = cat.image_path 
+    ? `<img src="${cat.image_path}" style="width:100%;height:100%;object-fit:cover;">` 
+    : '<span>📷 اضغط لاختيار صورة جديدة</span>';
+  document.getElementById('editCatImage').value = '';
   
-  if (changeImage) {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = 'image/*';
-    input.onchange = async () => {
-      if (input.files[0]) formData.append('image', input.files[0]);
-      await sendCategoryUpdate(id, formData);
-    };
-    input.click();
-  } else {
-    await sendCategoryUpdate(id, formData);
-  }
+  document.getElementById('editCatModal').classList.remove('hidden');
 }
 
-async function sendCategoryUpdate(id, formData) {
+function closeEditCatModal() {
+  document.getElementById('editCatModal').classList.add('hidden');
+  editingCategoryId = null;
+}
+
+async function saveCategoryEdit() {
+  if (!editingCategoryId) return;
+  const cat = allCategories.find(c => c.id === editingCategoryId);
+  const name = document.getElementById('editCatName').value.trim();
+  if (!name) return showToast('اسم القسم مطلوب ⚠️', 'warning');
+  
+  const formData = new FormData();
+  formData.append('name', name);
+  formData.append('sort_order', cat.sort_order || 0);
+  
+  const imageFile = document.getElementById('editCatImage').files[0];
+  if (imageFile) formData.append('image', imageFile);
+  
   try {
-    const res = await fetch(`${API}/categories/${id}`, {
+    const res = await fetch(`${API}/categories/${editingCategoryId}`, {
       method: 'PUT',
       headers: authHeaders(),
       body: formData
     });
     if (!res.ok) throw new Error('Failed');
+    closeEditCatModal();
     await loadCategories();
     renderCategories();
     populateCategorySelects();

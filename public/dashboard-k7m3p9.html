@@ -335,10 +335,31 @@
       </div>
     </div>
   </div>
-
+  <!-- Edit Category Modal -->
+  <div class="modal-overlay hidden" id="editCatModal">
+    <div class="modal" style="max-width:400px;">
+      <h2>✏️ تعديل القسم</h2>
+      <div class="form-group">
+        <label>اسم القسم</label>
+        <input type="text" id="editCatName" placeholder="اسم القسم">
+      </div>
+      <div class="form-group">
+        <label>صورة القسم (اختياري)</label>
+        <div class="image-preview" id="editCatImagePreview" onclick="document.getElementById('editCatImage').click()" style="height:120px;">
+          <span>📷 اضغط لاختيار صورة جديدة</span>
+        </div>
+        <input type="file" id="editCatImage" accept="image/*" onchange="previewImage(this, 'editCatImagePreview')">
+      </div>
+      <div class="flex gap-1 mt-1">
+        <button class="btn btn-success" onclick="saveCategoryEdit()">💾 حفظ</button>
+        <button class="btn" onclick="closeEditCatModal()" style="background:#eee;color:var(--text);">إلغاء</button>
+      </div>
+    </div>
+  </div>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js"></script>
   <script src="notifications.js"></script>
   <script src="owner.js"></script>
+
 </body>
 </html>

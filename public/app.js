@@ -23,6 +23,8 @@ async function loadMenu() {
     ]);
     if (!catRes.ok || !itemRes.ok) throw new Error('Network error');
     categories = await catRes.json();
+        console.log('Categories loaded:', categories);
+    if (categories.length > 0) console.log('First cat image_path:', categories[0].image_path);
     items = await itemRes.json();
     settings = await settingsRes.json();
     bestSellers = await bestSellersRes.json().catch(() => []);
@@ -88,8 +90,10 @@ function renderCategoriesSplash() {
     const div = document.createElement('div');
     div.className = 'category-card';
     div.onclick = () => showCategoryItems(cat.id);
-    const imgHtml = cat.image_path 
-      ? `<div class="category-img"><img src="${cat.image_path}" alt="${cat.name}"></div>`
+    // Use image_path or imagepath — handle both cases
+    const imgSrc = cat.image_path || cat.imagepath || null;
+    const imgHtml = imgSrc 
+      ? `<div class="category-img"><img src="${imgSrc}" alt="${cat.name}" onerror="this.parentElement.innerHTML='<span style=font-size:3rem;>☕</span>'"></div>`
       : `<div class="category-img"><span style="font-size:3rem;">☕</span></div>`;
     div.innerHTML = `${imgHtml}<div class="category-name">${cat.name}</div>`;
     grid.appendChild(div);
