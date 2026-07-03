@@ -28,11 +28,20 @@ async function loadMenu() {
     bestSellers = await bestSellersRes.json().catch(() => []);
 
     // Update cafe name/logo
-    if (settings.cafe_name) document.getElementById('cafeName').textContent = settings.cafe_name;
+    if (settings.cafe_name) {
+      document.getElementById('cafeName').textContent = settings.cafe_name;
+      document.getElementById('splashCafeName').textContent = settings.cafe_name;
+    }
     if (settings.cafe_logo) {
       const logo = document.getElementById('cafeLogo');
       logo.src = settings.cafe_logo;
       logo.style.display = 'inline';
+      const splashLogo = document.getElementById('splashLogo');
+      splashLogo.src = settings.cafe_logo;
+      splashLogo.style.display = 'inline';
+    }
+    if (settings.cafe_menu_image) {
+      document.getElementById('menuSplashBg').style.backgroundImage = `url('${settings.cafe_menu_image}')`;
     }
     if (settings.cafe_lat && settings.cafe_lng) {
       cafeLocation = { lat: parseFloat(settings.cafe_lat), lng: parseFloat(settings.cafe_lng) };
@@ -57,16 +66,53 @@ async function loadMenu() {
       }
     }
 
-    renderTabs();
-    renderMenu('all');
+    renderCategoriesSplash();
   } catch (e) {
-    document.getElementById('menuGrid').innerHTML = `
-      <div class="text-center" style="grid-column:1/-1;padding:3rem;color:var(--text-muted);">
+    document.getElementById('categoriesGrid').innerHTML = `
+      <div class="text-center" style="padding:3rem;color:var(--text-muted);">
         <p>⚠️ لم نتمكن من تحميل القائمة</p>
         <p class="text-sm">تأكد من تشغيل الخادم على المنفذ 3015</p>
       </div>
     `;
   }
+}
+
+function renderCategoriesSplash() {
+  const grid = document.getElementById('categoriesGrid');
+  grid.innerHTML = '';
+  if (categories.length === 0) {
+    grid.innerHTML = '<div class="text-center" style="padding:3rem;color:var(--text-muted);">لا توجد أقسام</div>';
+    return;
+  }
+  categories.forEach(cat => {
+    const div = document.createElement('div');
+    div.className = 'category-card';
+    div.onclick = () => showCategoryItems(cat.id);
+    const imgHtml = cat.image_path 
+      ? `<div class="category-img"><img src="${cat.image_path}" alt="${cat.name}"></div>`
+      : `<div class="category-img"><span style="font-size:3rem;">☕</span></div>`;
+    div.innerHTML = `${imgHtml}<div class="category-name">${cat.name}</div>`;
+    grid.appendChild(div);
+  });
+  const allDiv = document.createElement('div');
+  allDiv.className = 'category-card';
+  allDiv.onclick = () => showCategoryItems('all');
+  allDiv.innerHTML = `<div class="category-img"><span style="font-size:3rem;">📋</span></div><div class="category-name">جميع الأصناف</div>`;
+  grid.appendChild(allDiv);
+}
+
+function showCategoryItems(catId) {
+  document.getElementById('menuSplash').classList.add('hidden');
+  document.getElementById('menuItemsView').classList.remove('hidden');
+  renderTabs();
+  renderMenu(catId);
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function showCategories() {
+  document.getElementById('menuSplash').classList.remove('hidden');
+  document.getElementById('menuItemsView').classList.add('hidden');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
 function renderTabs() {
@@ -121,7 +167,7 @@ function renderMenu(catId) {
 }
 
 function formatPrice(price) {
-  return parseInt(price).toLocaleString('ar-SY') + ' ل.س';
+  return parseInt(price).toLocaleString('en-US') + ' ل.س';
 }
 
 function openItemModal(itemId) {
@@ -361,6 +407,34 @@ function calculateDistance(lat1, lng1, lat2, lng2) {
 }
 
 async function submitOrder() {
+  if (window.addToOrderId) {
+    const orderItems = cart.map(c => ({
+      id: c.id,
+      name: c.name,
+      price: c.price,
+      quantity: c.quantity,
+      additions: c.additions
+    }));
+    try {
+      const res = await fetch(`${API}/orders/${window.addToOrderId}/items`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ items: orderItems })
+      });
+      if (!res.ok) throw new Error('Failed');
+      showToast('تم إضافة الأصناف للطلب بنجاح! ✅', 'success');
+      clearCart();
+      closeCheckout();
+      window.addToOrderId = null;
+      const checkoutBtn = document.querySelector('#cartPanel button');
+      if (checkoutBtn) checkoutBtn.textContent = 'اطلب الآن';
+      return;
+    } catch (e) {
+      showToast('تعذر إضافة الأصناف للطلب ❌', 'error');
+      return;
+    }
+  }
+
   const name = document.getElementById('customerName').value || null;
 
   const orderItems = cart.map(c => ({
@@ -689,6 +763,9 @@ async function trackOrder() {
     if (order.status === 'pending') {
       html += `<button class="btn btn-danger btn-block mt-1" onclick="cancelCustomerOrder(${order.id})">❌ إلغاء الطلب</button>`;
     }
+    if (!isCancelled && ['pending', 'preparing'].includes(order.status)) {
+      html += `<button class="btn btn-primary btn-block mt-1" onclick="startAddToOrder(${order.id})">➕ إضافة أصناف للطلب</button>`;
+    }
 
     html += '</div>';
     document.getElementById('trackResult').innerHTML = html;
@@ -769,7 +846,14 @@ document.addEventListener('click', (e) => {
     }
   }
 });
-
+function startAddToOrder(orderId) {
+  window.addToOrderId = orderId;
+  closeOrderStatus();
+  showCategories();
+  showToast('اختر الأصناف لإضافتها للطلب #' + orderId, 'info');
+  const checkoutBtn = document.querySelector('#cartPanel button');
+  if (checkoutBtn) checkoutBtn.textContent = 'إضافة للطلب';
+}
 // Theme toggle
 function toggleTheme() {
   const current = document.documentElement.getAttribute('data-theme') || 'light';

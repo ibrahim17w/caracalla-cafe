@@ -17,7 +17,19 @@
     </div>
   </nav>
 
-  <div class="container" style="padding-bottom: 100px;">
+  <!-- Splash / Categories View -->
+  <div id="menuSplash" class="menu-splash">
+    <div class="splash-bg" id="menuSplashBg"></div>
+    <div class="splash-content">
+      <img id="splashLogo" class="splash-logo" src="" style="display:none;" alt="logo">
+      <h1 id="splashCafeName">Caracalla Cafe</h1>
+      <div class="categories-grid" id="categoriesGrid"></div>
+    </div>
+  </div>
+
+  <!-- Items View -->
+  <div id="menuItemsView" class="hidden container" style="padding-bottom: 100px;">
+    <button class="btn btn-outline mb-1" onclick="showCategories()" style="margin-bottom:1rem;">← رجوع للأقسام</button>
     <div class="tabs" id="categoryTabs"></div>
     <div id="menuGrid" class="grid"></div>
   </div>

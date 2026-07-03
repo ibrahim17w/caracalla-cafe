@@ -176,6 +176,9 @@ function applySettings() {
     logo.style.display = 'inline';
     document.getElementById('setLogoPreview').innerHTML = `<img src="${allSettings.cafe_logo}" alt="logo">`;
   }
+  if (allSettings.cafe_menu_image) {
+    document.getElementById('setMenuImagePreview').innerHTML = `<img src="${allSettings.cafe_menu_image}" alt="menu bg">`;
+  }
   if (allSettings.cafe_lat && allSettings.cafe_lng) {
     initCafeSettingMap(parseFloat(allSettings.cafe_lat), parseFloat(allSettings.cafe_lng));
   } else {
@@ -196,7 +199,7 @@ function populateCategorySelects() {
 }
 
 function formatPrice(price) {
-  return parseInt(price).toLocaleString('ar-SY') + ' ل.س';
+  return parseInt(price).toLocaleString('en-US') + ' ل.س';
 }
 
 function getStatusLabel(status) {
@@ -634,14 +637,22 @@ async function addCategory() {
   const name = document.getElementById('newCatName').value.trim();
   if (!name) return showToast('اسم القسم مطلوب ⚠️', 'warning');
 
+  const formData = new FormData();
+  formData.append('name', name);
+  formData.append('sort_order', allCategories.length);
+  const imageFile = document.getElementById('newCatImage').files[0];
+  if (imageFile) formData.append('image', imageFile);
+
   try {
     const res = await fetch(`${API}/categories`, {
       method: 'POST',
-      headers: { ...authHeaders(), 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, sort_order: allCategories.length })
+      headers: authHeaders(),
+      body: formData
     });
     if (!res.ok) throw new Error('Failed');
     document.getElementById('newCatName').value = '';
+    document.getElementById('newCatImage').value = '';
+    document.getElementById('newCatImagePreview').innerHTML = '<span>📷 اضغط لاختيار صورة</span>';
     await loadCategories();
     renderCategories();
     populateCategorySelects();
@@ -677,10 +688,56 @@ function renderCategories() {
   container.innerHTML = allCategories.map((c, idx) => `
     <div class="category-row" draggable="true" data-id="${c.id}" data-index="${idx}" ondragstart="dragStart(event)" ondragover="dragOver(event)" ondrop="drop(event)" ondragend="dragEnd(event)">
       <span class="drag-handle">⋮⋮</span>
+      ${c.image_path ? `<img src="${c.image_path}" style="width:40px;height:40px;border-radius:8px;object-fit:cover;margin-left:0.5rem;border:1px solid var(--border);">` : ''}
       <span class="cat-name">${c.name}</span>
-      <button class="btn btn-danger btn-sm" onclick="deleteCategory(${c.id})">حذف</button>
+      <div style="margin-right:auto;display:flex;gap:0.5rem;align-items:center;">
+        <button class="btn btn-sm btn-outline" onclick="editCategory(${c.id})">تعديل</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteCategory(${c.id})">حذف</button>
+      </div>
     </div>
   `).join('');
+}
+
+async function editCategory(id) {
+  const cat = allCategories.find(c => c.id === id);
+  if (!cat) return;
+  const newName = prompt('اسم القسم:', cat.name);
+  if (newName === null || !newName.trim()) return;
+  const changeImage = confirm('هل تريد تغيير صورة القسم؟');
+  
+  const formData = new FormData();
+  formData.append('name', newName.trim());
+  formData.append('sort_order', cat.sort_order || 0);
+  
+  if (changeImage) {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.onchange = async () => {
+      if (input.files[0]) formData.append('image', input.files[0]);
+      await sendCategoryUpdate(id, formData);
+    };
+    input.click();
+  } else {
+    await sendCategoryUpdate(id, formData);
+  }
+}
+
+async function sendCategoryUpdate(id, formData) {
+  try {
+    const res = await fetch(`${API}/categories/${id}`, {
+      method: 'PUT',
+      headers: authHeaders(),
+      body: formData
+    });
+    if (!res.ok) throw new Error('Failed');
+    await loadCategories();
+    renderCategories();
+    populateCategorySelects();
+    showToast('تم تحديث القسم ✅', 'success');
+  } catch (e) {
+    showToast('تعذر تحديث القسم ❌', 'error');
+  }
 }
 
 function dragStart(e) {
@@ -1140,7 +1197,6 @@ function getCafeCurrentLocation() {
 async function saveSettings() {
   const logoFile = document.getElementById('setLogo').files[0];
   let logoPath = allSettings.cafe_logo || '';
-
   if (logoFile) {
     const formData = new FormData();
     formData.append('image', logoFile);
@@ -1150,11 +1206,23 @@ async function saveSettings() {
         headers: authHeaders(),
         body: formData
       });
-      if (res.ok) {
-        const data = await res.json();
-        logoPath = data.path;
-      }
+      if (res.ok) { const data = await res.json(); logoPath = data.path; }
     } catch (e) { console.error('Logo upload failed', e); }
+  }
+
+  const menuImageFile = document.getElementById('setMenuImage').files[0];
+  let menuImagePath = allSettings.cafe_menu_image || '';
+  if (menuImageFile) {
+    const formData = new FormData();
+    formData.append('image', menuImageFile);
+    try {
+      const res = await fetch(`${API}/upload`, {
+        method: 'POST',
+        headers: authHeaders(),
+        body: formData
+      });
+      if (res.ok) { const data = await res.json(); menuImagePath = data.path; }
+    } catch (e) { console.error('Menu image upload failed', e); }
   }
 
   const settings = [
@@ -1163,7 +1231,7 @@ async function saveSettings() {
   ];
 
   if (logoPath) settings.push({ key: 'cafe_logo', value: logoPath });
-
+  if (menuImagePath) settings.push({ key: 'cafe_menu_image', value: menuImagePath });
   if (cafeSettingMarker) {
     const latlng = cafeSettingMarker.getLatLng();
     settings.push({ key: 'cafe_lat', value: String(latlng.lat) });

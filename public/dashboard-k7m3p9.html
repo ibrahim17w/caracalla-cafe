@@ -122,10 +122,18 @@
       <div id="tab-categories" class="hidden">
         <div class="card">
           <h2>إضافة قسم جديد</h2>
-          <div class="flex gap-1 align-center">
-            <input type="text" id="newCatName" placeholder="اسم القسم الجديد" onkeydown="if(event.key==='Enter')addCategory()" style="flex:1;">
-            <button class="btn btn-success" onclick="addCategory()">إضافة</button>
+          <div class="form-group">
+            <label>اسم القسم</label>
+            <input type="text" id="newCatName" placeholder="اسم القسم الجديد" onkeydown="if(event.key==='Enter')addCategory()">
           </div>
+          <div class="form-group">
+            <label>صورة القسم (اختياري)</label>
+            <div class="image-preview" id="newCatImagePreview" onclick="document.getElementById('newCatImage').click()">
+              <span>📷 اضغط لاختيار صورة</span>
+            </div>
+            <input type="file" id="newCatImage" accept="image/*" onchange="previewImage(this, 'newCatImagePreview')">
+          </div>
+          <button class="btn btn-success btn-block" onclick="addCategory()">إضافة</button>
         </div>
         <div class="card">
           <h2>الأقسام الحالية (اسحب لإعادة الترتيب)</h2>
@@ -156,6 +164,13 @@
               <span>📷 اضغط لاختيار شعار</span>
             </div>
             <input type="file" id="setLogo" accept="image/*" onchange="previewImage(this, 'setLogoPreview')">
+          </div>
+          <div class="form-group">
+            <label>صورة خلفية القائمة (اختياري)</label>
+            <div class="image-preview" id="setMenuImagePreview" onclick="document.getElementById('setMenuImage').click()">
+              <span>📷 اضغط لاختيار صورة خلفية</span>
+            </div>
+            <input type="file" id="setMenuImage" accept="image/*" onchange="previewImage(this, 'setMenuImagePreview')">
           </div>
           <div class="form-group">
             <label>موقع المقهى على الخريطة</label>

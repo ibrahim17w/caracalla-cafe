@@ -178,23 +178,39 @@ app.get('/api/categories', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-app.post('/api/categories', verifyToken, requireRole(['owner']), async (req, res) => {
+app.post('/api/categories', verifyToken, requireRole(['owner']), upload.single('image'), async (req, res) => {
   const { name, sort_order } = req.body;
+  let imagePath = null;
+  if (req.file) {
+    try {
+      const base64 = req.file.buffer.toString('base64');
+      imagePath = `data:${req.file.mimetype};base64,${base64}`;
+    } catch (e) { imagePath = null; }
+  }
   try {
     const result = await pool.query(
-      'INSERT INTO categories (name, sort_order) VALUES ($1, $2) RETURNING *',
-      [name, sort_order || 0]
+      'INSERT INTO categories (name, sort_order, image_path) VALUES ($1, $2, $3) RETURNING *',
+      [name, sort_order || 0, imagePath]
     );
     res.json(result.rows[0]);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-app.put('/api/categories/:id', verifyToken, requireRole(['owner']), async (req, res) => {
+app.put('/api/categories/:id', verifyToken, requireRole(['owner']), upload.single('image'), async (req, res) => {
   const { name, sort_order } = req.body;
   try {
+    const oldResult = await pool.query('SELECT image_path FROM categories WHERE id = $1', [req.params.id]);
+    const oldImage = oldResult.rows[0]?.image_path;
+    let imagePath = oldImage;
+    if (req.file) {
+      try {
+        const base64 = req.file.buffer.toString('base64');
+        imagePath = `data:${req.file.mimetype};base64,${base64}`;
+      } catch (e) { imagePath = oldImage; }
+    }
     const result = await pool.query(
-      'UPDATE categories SET name=$1, sort_order=$2 WHERE id=$3 RETURNING *',
-      [name, sort_order, req.params.id]
+      'UPDATE categories SET name=$1, sort_order=$2, image_path=$3 WHERE id=$4 RETURNING *',
+      [name, sort_order, imagePath, req.params.id]
     );
     res.json(result.rows[0]);
   } catch (err) { res.status(500).json({ error: err.message }); }
@@ -311,6 +327,7 @@ app.put('/api/items/:id', verifyToken, requireRole(['owner']), upload.single('im
 app.delete('/api/items/:id', verifyToken, requireRole(['owner']), async (req, res) => {
   try {
     await pool.query('DELETE FROM item_additions WHERE item_id = $1', [req.params.id]);
+    await pool.query('UPDATE order_items SET item_id = NULL WHERE item_id = $1', [req.params.id]);
     await pool.query('DELETE FROM items WHERE id = $1', [req.params.id]);
     res.json({ success: true });
   } catch (err) { res.status(500).json({ error: err.message }); }
@@ -592,7 +609,51 @@ app.put('/api/orders/:id', verifyToken, requireRole(['owner']), async (req, res)
     res.json(result.rows[0]);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
+app.post('/api/orders/:id/items', async (req, res) => {
+  const { items } = req.body;
+  const orderId = parseInt(req.params.id);
+  if (!items || !Array.isArray(items)) return res.status(400).json({ error: 'Items required' });
 
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const orderCheck = await client.query('SELECT status FROM orders WHERE id = $1', [orderId]);
+    if (orderCheck.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Order not found' });
+    }
+    if (['completed', 'cancelled'].includes(orderCheck.rows[0].status)) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'Cannot modify completed or cancelled order' });
+    }
+
+    let totalAdded = 0;
+    for (const it of items) {
+      let itemTotal = it.price * it.quantity;
+      if (it.additions) { for (const add of it.additions) itemTotal += (add.price || 0) * it.quantity; }
+      totalAdded += itemTotal;
+
+      const itemSubtotal = it.price * it.quantity + (it.additions || []).reduce((s, a) => s + (a.price || 0) * it.quantity, 0);
+      const oiResult = await client.query(
+        'INSERT INTO order_items (order_id, item_id, item_name, quantity, unit_price, subtotal) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
+        [orderId, it.id, it.name, it.quantity, it.price, itemSubtotal]
+      );
+      const orderItem = oiResult.rows[0];
+      if (it.additions) {
+        for (const add of it.additions) {
+          await client.query('INSERT INTO order_item_additions (order_item_id, addition_name, addition_price) VALUES ($1, $2, $3)', [orderItem.id, add.name, add.price || 0]);
+        }
+      }
+    }
+
+    await client.query('UPDATE orders SET total_amount = total_amount + $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2', [totalAdded, orderId]);
+    await client.query('COMMIT');
+    res.json({ success: true, added_amount: totalAdded });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    res.status(500).json({ error: err.message });
+  } finally { client.release(); }
+});
 // ===================== QR CODE =====================
 app.get('/api/qrcode', async (req, res) => {
   try {
