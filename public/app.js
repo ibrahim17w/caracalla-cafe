@@ -146,11 +146,6 @@ function renderCategoriesSplash() {
     div.innerHTML = `${imgHtml}<div class="category-name">${cat.name}</div>`;
     grid.appendChild(div);
   });
-  const allDiv = document.createElement('div');
-  allDiv.className = 'category-card';
-  allDiv.onclick = () => showCategoryItems('all');
-  allDiv.innerHTML = `<div class="category-img"><span style="font-size:2.5rem;">📋</span></div><div class="category-name">جميع الأصناف</div>`;
-  grid.appendChild(allDiv);
 }
 
 function showCategoryItems(catId) {
@@ -566,6 +561,7 @@ function showCustomerReceipt() {
   const order = window.lastOrder;
   const items = window.lastOrderItems || [];
   const cafeName = settings.cafe_name || 'Caracalla Cafe';
+  const cafePhone = settings.cafe_phone || '';
 
   let itemsHtml = '';
   let total = 0;
@@ -575,25 +571,35 @@ function showCustomerReceipt() {
     if (it.additions && it.additions.length > 0) {
       it.additions.forEach(a => {
         subtotal += a.price * it.quantity;
-        addsHtml += `<div style="padding-right:1rem;font-size:0.8rem;color:var(--text-muted);">+ ${a.name}</div>`;
+        addsHtml += `<div style="padding-right:1rem;font-size:0.85rem;color:var(--text-muted);">+ ${a.name}</div>`;
       });
     }
     total += subtotal;
-    itemsHtml += `<div style="display:flex;justify-content:space-between;margin-bottom:0.3rem;"><span>${it.name} × ${it.quantity}</span><span>${subtotal.toLocaleString('ar-SY')} ل.س</span></div>${addsHtml}`;
+    itemsHtml += `<div style="display:flex;justify-content:space-between;margin-bottom:0.2rem;"><span>${it.name} × ${it.quantity}</span><span>${subtotal.toLocaleString('ar-SY')} ل.س</span></div>${addsHtml}`;
   });
+
+  const isDelivery = order.order_type === 'delivery';
+  const customerLabel = isDelivery ? 'رقم الزبون' : 'رقم الطاولة';
+  const customerValue = isDelivery ? (order.phone || '-') : (order.table_number || '-');
 
   const receiptHtml = `
     <div id="customerReceiptPrint" class="receipt">
-      <div class="receipt-header" style="text-align:center;">
+      <div class="receipt-header" style="text-align:center;border-bottom:none;padding-bottom:0.3rem;margin-bottom:0.3rem;">
+        ${settings.cafe_logo ? `<img src="${settings.cafe_logo}" class="logo">` : ''}
         <h3>${cafeName}</h3>
+        ${cafePhone ? `<div style="font-size:0.85rem;color:var(--text-muted);margin-top:0.2rem;">${cafePhone}</div>` : ''}
       </div>
-      <div style="display:flex;justify-content:space-between;margin-bottom:0.3rem;font-size:0.9rem;"><span>رقم الطلب:</span><span>#${order.daily_order_number || order.id}</span></div>
-      <div style="display:flex;justify-content:space-between;margin-bottom:0.3rem;font-size:0.9rem;"><span>التاريخ:</span><span>${new Date(order.created_at).toLocaleString('ar-SY')}</span></div>
+      <div style="display:flex;justify-content:center;margin-bottom:0.5rem;font-size:0.85rem;color:var(--text-muted);"><span>${new Date(order.created_at).toLocaleString('ar-SY')}</span></div>
+      <div style="display:flex;justify-content:space-between;margin-bottom:0.3rem;font-size:0.95rem;"><span>الزبون:</span><span>${order.customer_name || 'زبون'}</span></div>
+      <hr style="border:1px dashed var(--border);margin:0.5rem 0;">
+      <div style="display:flex;justify-content:space-between;margin-bottom:0.3rem;font-size:0.95rem;"><span>${customerLabel}:</span><span>${customerValue}</span></div>
+      <hr style="border:1px dashed var(--border);margin:0.5rem 0;">
+      <div style="display:flex;justify-content:space-between;margin-bottom:0.3rem;font-size:0.95rem;"><span>رقم الطلب:</span><span>#${order.daily_order_number || order.id}</span></div>
       <hr style="border:1px dashed var(--border);margin:0.5rem 0;">
       ${itemsHtml}
       <hr style="border:1px dashed var(--border);margin:0.5rem 0;">
-      <div style="display:flex;justify-content:space-between;font-weight:800;color:var(--primary);font-size:1.1rem;"><span>الإجمالي:</span><span>${total.toLocaleString('ar-SY')} ل.س</span></div>
-      <div style="text-align:center;margin-top:1rem;color:var(--text-muted);font-size:0.8rem;">شكراً لزيارتكم!</div>
+      <div style="display:flex;justify-content:space-between;font-weight:800;color:var(--primary);font-size:1.1rem;"><span>المجموع:</span><span>${total.toLocaleString('ar-SY')} ل.س</span></div>
+      <div style="text-align:center;margin-top:0.8rem;color:var(--text-muted);font-size:0.8rem;">شكراً لزيارتكم!</div>
     </div>
   `;
 

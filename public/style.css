@@ -1356,3 +1356,4 @@ input[type="file"] {
     font-size: 0.9rem;
   }
 }
+nav h1 { cursor: pointer; }

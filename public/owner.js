@@ -1156,7 +1156,7 @@ async function generateReceipt(orderId) {
     itemsHtml += `<div class="receipt-line"><span>${it.item_name} × ${it.quantity}</span><span>${formatPrice(it.subtotal)}</span></div>`;
     if (it.additions && it.additions.length > 0) {
       it.additions.forEach(a => {
-        itemsHtml += `<div class="receipt-line" style="padding-right:1rem;font-size:0.8rem;"><span>+ ${a.addition_name}</span><span>${formatPrice(a.addition_price)}</span></div>`;
+        itemsHtml += `<div class="receipt-line" style="padding-right:1rem;font-size:0.85rem;color:var(--text-muted);"><span>+ ${a.addition_name}</span><span>${formatPrice(a.addition_price)}</span></div>`;
       });
     }
   });
@@ -1171,25 +1171,32 @@ async function generateReceipt(orderId) {
     }
   } catch (e) { qrDataUrl = ''; }
 
+  const isDelivery = order.order_type === 'delivery';
+  const customerLabel = isDelivery ? 'رقم الزبون' : 'رقم الطاولة';
+  const customerValue = isDelivery ? (order.phone || '-') : (order.table_number || '-');
+
   const receiptHtml = `
     <div id="receiptPrint" class="receipt">
-      <div class="receipt-header">
+      <div class="receipt-header" style="border-bottom:none;padding-bottom:0.3rem;margin-bottom:0.3rem;">
         ${allSettings.cafe_logo ? `<img src="${allSettings.cafe_logo}" class="logo">` : ''}
         <h3>${cafeName}</h3>
-        ${cafePhone ? `<div style="font-size:0.8rem;color:var(--text-muted);">📞 ${cafePhone}</div>` : ''}
-        ${cafeAddress ? `<div style="font-size:0.8rem;color:var(--text-muted);">${cafeAddress}</div>` : ''}
+        ${cafePhone ? `<div style="font-size:0.85rem;color:var(--text-muted);margin-top:0.2rem;">${cafePhone}</div>` : ''}
+        ${cafeAddress ? `<div style="font-size:0.8rem;color:var(--text-muted);margin-top:0.2rem;">${cafeAddress}</div>` : ''}
       </div>
-      <div class="receipt-line"><span>رقم الطلب:</span><span>#${order.daily_order_number || order.id}</span></div>
-      <div class="receipt-line"><span>التاريخ:</span><span>${formatTime(order.created_at)}</span></div>
+      <div class="receipt-line" style="justify-content:center;font-size:0.85rem;color:var(--text-muted);margin-bottom:0.5rem;"><span>${formatTime(order.created_at)}</span></div>
+      ${customFieldsHtml ? customFieldsHtml + '<hr style="border:1px dashed var(--border);margin:0.5rem 0;">' : ''}
       <div class="receipt-line"><span>الزبون:</span><span>${order.customer_name || 'زبون'}</span></div>
-      ${customFieldsHtml ? '<hr style="border:1px dashed var(--border);margin:0.5rem 0;">' + customFieldsHtml : ''}
+      <hr style="border:1px dashed var(--border);margin:0.5rem 0;">
+      <div class="receipt-line"><span>${customerLabel}:</span><span>${customerValue}</span></div>
+      <hr style="border:1px dashed var(--border);margin:0.5rem 0;">
+      <div class="receipt-line"><span>رقم الطلب:</span><span>#${order.daily_order_number || order.id}</span></div>
       <hr style="border:1px dashed var(--border);margin:0.5rem 0;">
       ${itemsHtml}
       <hr style="border:1px dashed var(--border);margin:0.5rem 0;">
-      <div class="receipt-line receipt-total"><span>الإجمالي:</span><span>${formatPrice(order.total_amount)}</span></div>
-      <div class="receipt-footer">
+      <div class="receipt-line receipt-total"><span>المجموع:</span><span>${formatPrice(order.total_amount)}</span></div>
+      <div class="receipt-footer" style="border-top:none;padding-top:0.5rem;margin-top:0.5rem;">
         ${allSettings.receipt_footer || 'شكراً لزيارتكم!'}
-        ${qrDataUrl ? `<div style="margin-top:0.5rem;"><img src="${qrDataUrl}" style="width:100px;height:100px;"></div><div style="font-size:0.7rem;color:var(--text-muted);">امسح لرؤية القائمة</div>` : ''}
+        ${qrDataUrl ? `<div style="margin-top:0.5rem;"><img src="${qrDataUrl}" style="width:80px;height:80px;"></div><div style="font-size:0.7rem;color:var(--text-muted);">امسح لرؤية القائمة</div>` : ''}
       </div>
     </div>
   `;
