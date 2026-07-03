@@ -27,6 +27,10 @@ async function loadMenu() {
     if (categories.length > 0) console.log('First cat image_path:', categories[0].image_path);
     items = await itemRes.json();
     settings = await settingsRes.json();
+        console.log('Settings loaded:', settings);
+    console.log('cafe_logo:', settings.cafe_logo);
+    console.log('cafe_menu_image:', settings.cafe_menu_image);
+    console.log('cafe_open_hours:', settings.cafe_open_hours);
     bestSellers = await bestSellersRes.json().catch(() => []);
 
     // Update cafe name/logo/description
@@ -50,39 +54,46 @@ async function loadMenu() {
       if (splashLogo) splashLogo.style.display = 'none';
       const splashLogoPlaceholder = document.getElementById('splashLogoPlaceholder');
       if (splashLogoPlaceholder) splashLogoPlaceholder.style.display = 'flex';
-    } 
-    else {
-      const splashLogo = document.getElementById('splashLogo');
-      if (splashLogo) splashLogo.style.display = 'none';
-      const splashLogoPlaceholder = document.getElementById('splashLogoPlaceholder');
-      if (splashLogoPlaceholder) splashLogoPlaceholder.style.display = 'flex';
     }
+    
     if (settings.cafe_description) {
-      document.getElementById('splashDesc').textContent = settings.cafe_description;
+      const splashDesc = document.getElementById('splashDesc');
+      if (splashDesc) splashDesc.textContent = settings.cafe_description;
     }
+    
     if (settings.cafe_menu_image) {
-      document.getElementById('menuSplashBg').style.backgroundImage = `url('${settings.cafe_menu_image}')`;
+      const menuSplashBg = document.getElementById('menuSplashBg');
+      if (menuSplashBg) menuSplashBg.style.backgroundImage = `url('${settings.cafe_menu_image}')`;
     }
+    
     // Open/close status
     const openStatusEl = document.getElementById('openStatus');
     if (openStatusEl && settings.cafe_open_hours) {
-      const now = new Date();
-      const syriaTime = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Damascus' }));
-      const currentHour = syriaTime.getHours();
-      const currentMinute = syriaTime.getMinutes();
-      const currentTime = currentHour * 60 + currentMinute;
-      
-      const [openH, openM] = (settings.cafe_open_hours.open || '08:00').split(':').map(Number);
-      const [closeH, closeM] = (settings.cafe_open_hours.close || '23:00').split(':').map(Number);
-      const openTime = openH * 60 + openM;
-      const closeTime = closeH * 60 + closeM;
-      
-      const isOpen = currentTime >= openTime && currentTime < closeTime;
-      openStatusEl.style.display = 'inline-flex';
-      openStatusEl.className = 'open-status ' + (isOpen ? 'open' : 'closed');
-      document.getElementById('openStatusIcon').textContent = isOpen ? '🟢' : '🔴';
-      document.getElementById('openStatusText').textContent = isOpen ? 'مفتوح الآن' : 'مغلق الآن';
+      try {
+        const hours = typeof settings.cafe_open_hours === 'string' ? JSON.parse(settings.cafe_open_hours) : settings.cafe_open_hours;
+        const now = new Date();
+        const syriaTime = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Damascus' }));
+        const currentHour = syriaTime.getHours();
+        const currentMinute = syriaTime.getMinutes();
+        const currentTime = currentHour * 60 + currentMinute;
+        
+        const [openH, openM] = (hours.open || '08:00').split(':').map(Number);
+        const [closeH, closeM] = (hours.close || '23:00').split(':').map(Number);
+        const openTime = openH * 60 + openM;
+        const closeTime = closeH * 60 + closeM;
+        
+        const isOpen = currentTime >= openTime && currentTime < closeTime;
+        openStatusEl.style.display = 'inline-flex';
+        openStatusEl.className = 'open-status ' + (isOpen ? 'open' : 'closed');
+        const openStatusIcon = document.getElementById('openStatusIcon');
+        if (openStatusIcon) openStatusIcon.textContent = isOpen ? '🟢' : '🔴';
+        const openStatusText = document.getElementById('openStatusText');
+        if (openStatusText) openStatusText.textContent = isOpen ? 'مفتوح الآن' : 'مغلق الآن';
+      } catch (e) {
+        console.error('Open hours parse error:', e);
+      }
     }
+    
     if (settings.cafe_lat && settings.cafe_lng) {
       cafeLocation = { lat: parseFloat(settings.cafe_lat), lng: parseFloat(settings.cafe_lng) };
     }
