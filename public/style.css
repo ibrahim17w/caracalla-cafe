@@ -886,8 +886,16 @@ input[type="file"] {
     top: 0;
     width: 100%;
   }
+  #receiptPrint hr, #customerReceiptPrint hr {
+    display: block !important;
+    visibility: visible !important;
+    border: none !important;
+    border-top: 1px dashed #000 !important;
+    margin: 0.4rem 0 !important;
+    width: 100% !important;
+    height: 0 !important;
+  }
 }
-
 /* ===== TOAST NOTIFICATIONS ===== */
 .toast-container {
   position: fixed;

@@ -15,15 +15,21 @@ let previousOrderCount = null;
 function playBeep() {
   try {
     const ctx = new (window.AudioContext || window.webkitAudioContext)();
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-    osc.type = 'sine';
-    osc.frequency.value = 880;
-    gain.gain.value = 0.3;
-    osc.start();
-    setTimeout(() => { osc.stop(); ctx.close(); }, 200);
+    const playTone = (freq, start, duration, vol) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.type = 'square';
+      osc.frequency.value = freq;
+      gain.gain.value = vol;
+      osc.start(ctx.currentTime + start);
+      osc.stop(ctx.currentTime + start + duration);
+    };
+    // Louder double beep pattern
+    playTone(1200, 0, 0.15, 0.6);
+    playTone(800, 0.18, 0.25, 0.6);
+    setTimeout(() => { ctx.close(); }, 500);
   } catch (e) { console.error('Beep failed', e); }
 }
 
@@ -238,12 +244,16 @@ async function toggleCafeOpen() {
   const current = allSettings.cafe_force_open === 'true';
   const newVal = current ? 'false' : 'true';
   try {
-    await fetch(`${API}/settings`, {
+    const res = await fetch(`${API}/settings`, {
       method: 'POST',
       headers: { ...authHeaders(), 'Content-Type': 'application/json' },
       body: JSON.stringify({ key: 'cafe_force_open', value: newVal })
     });
+    if (!res.ok) throw new Error('Failed to save');
     allSettings.cafe_force_open = newVal;
+    // Sync the settings tab checkbox
+    const openToggle = document.getElementById('setCafeOpen');
+    if (openToggle) openToggle.checked = newVal === 'true';
     updateNavOpenStatus();
     showToast(newVal === 'true' ? 'المقهى مفتوح الآن ✅' : 'المقهى مغلق الآن 🔴', 'success');
   } catch (e) {
