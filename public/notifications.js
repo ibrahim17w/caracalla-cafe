@@ -1,3 +1,4 @@
+//notifications.js
 /* ===== Toast Notifications ===== */
 function showToast(message, type = 'info') {
   let container = document.getElementById('toastContainer');

@@ -1,3 +1,4 @@
+//owner.js
 const API = window.location.origin + '/api';
 let token = localStorage.getItem('owner_token');
 let allItems = [];
@@ -209,7 +210,7 @@ function formatTime(dateStr) {
 
 // ===================== QR CODE =====================
 function generateQR() {
-  const cafeName = allSettings.cafe_name || 'كاراكالا كافيه';
+  const cafeName = allSettings.cafe_name || 'Caracalla Cafe';
   fetch(`${API}/qrcode`)
     .then(r => r.json())
     .then(data => {
@@ -228,7 +229,7 @@ function generateQR() {
 function generateTableQR() {
   const tableNum = document.getElementById('tableQrInput').value;
   if (!tableNum) return showToast('أدخل رقم الطاولة', 'warning');
-  const cafeName = allSettings.cafe_name || 'كاراكالا كافيه';
+  const cafeName = allSettings.cafe_name || 'Caracalla Cafe';
   const tableUrl = window.location.origin + '/menu?table=' + encodeURIComponent(tableNum);
   const container = document.getElementById('tableQrResult');
   container.innerHTML = '<p style="color:var(--text-muted);font-size:0.8rem;">جاري إنشاء الرمز...</p>';
@@ -275,7 +276,7 @@ function generateTableQR() {
 }
 
 function shareQR() {
-  const cafeName = allSettings.cafe_name || 'كاراكالا كافيه';
+  const cafeName = allSettings.cafe_name || 'Caracalla Cafe';
   const url = document.getElementById('qrUrl').textContent;
   const text = `${cafeName} - القائمة`;
   const qrSrc = document.getElementById('qrImage').src;
@@ -304,7 +305,7 @@ function shareQR() {
 function printQR() {
   const qr = document.getElementById('qrImage').src;
   const w = window.open('', '_blank');
-  w.document.write(`<html><body style="text-align:center;padding:2rem;"><h2>${allSettings.cafe_name || 'كاراكالا كافيه'}</h2><img src="${qr}" style="max-width:300px;"><p>امسح الرمز لعرض القائمة</p></body></html>`);
+  w.document.write(`<html><body style="text-align:center;padding:2rem;"><h2>${allSettings.cafe_name || 'Caracalla Cafe'}</h2><img src="${qr}" style="max-width:300px;"><p>امسح الرمز لعرض القائمة</p></body></html>`);
   w.document.close();
   w.print();
 }
@@ -964,7 +965,7 @@ async function generateReceipt(orderId) {
   const order = allOrders.find(o => o.id === orderId);
   if (!order) return;
 
-  const cafeName = allSettings.cafe_name || 'كاراكالا كافيه';
+  const cafeName = allSettings.cafe_name || 'Caracalla Cafe';
   const cafePhone = allSettings.cafe_phone || '';
   const cafeAddress = allSettings.cafe_address || '';
 
@@ -1025,7 +1026,82 @@ async function generateReceipt(orderId) {
 }
 
 function printReceipt() {
-  window.print();
+  const btn = document.querySelector('#receiptModal .btn-primary');
+  if (btn) { btn.disabled = true; btn.textContent = '⏳ جاري الطباعة...'; }
+
+  const content = document.getElementById('receiptContent').innerHTML;
+  const w = window.open('', '_blank', 'width=400,height=600');
+  w.document.write(`
+    <html dir="rtl">
+    <head>
+      <title>فاتورة</title>
+      <style>
+        @page { size: auto; margin: 0; }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+          font-family: 'Tajawal', sans-serif; 
+          padding: 4px; 
+          margin: 0; 
+          font-size: 13px; 
+          color: #000;
+          width: 100%;
+        }
+        .receipt { 
+          width: 100%; 
+          max-width: none; 
+          padding: 0; 
+          border: none; 
+          margin: 0; 
+          background: #fff;
+        }
+        .receipt-header { 
+          text-align: center; 
+          margin-bottom: 6px; 
+          padding-bottom: 4px; 
+          border-bottom: 1px dashed #000; 
+        }
+        .receipt-header h3 { margin: 0 0 4px; font-size: 15px; }
+        .receipt-header img { max-width: 50px; height: auto; margin-bottom: 4px; }
+        .receipt-header div { font-size: 11px; color: #333; margin-bottom: 2px; }
+        .receipt-line { 
+          display: flex; 
+          justify-content: space-between; 
+          padding: 2px 0; 
+          font-size: 12px; 
+        }
+        .receipt-line span:first-child { margin-left: 8px; }
+        .receipt-total { 
+          border-top: 1px dashed #000; 
+          margin-top: 4px; 
+          padding-top: 4px; 
+          font-weight: 800; 
+          font-size: 14px; 
+        }
+        .receipt-footer { 
+          text-align: center; 
+          margin-top: 6px; 
+          padding-top: 4px; 
+          border-top: 1px dashed #000; 
+          font-size: 11px; 
+          color: #333; 
+        }
+        .receipt-footer img { width: 70px; height: 70px; margin-top: 4px; }
+        hr { display: none; }
+        @media print { 
+          body { padding: 0; margin: 0; } 
+          .receipt { padding: 4px; }
+        }
+      </style>
+    </head>
+    <body>${content}</body>
+    </html>
+  `);
+  w.document.close();
+  w.onload = () => {
+    w.print();
+    setTimeout(() => { w.close(); closeReceiptModal(); }, 500);
+  };
+  setTimeout(() => { if (btn) { btn.disabled = false; btn.textContent = '🖨️ طباعة'; } }, 3000);
 }
 
 function closeReceiptModal() {

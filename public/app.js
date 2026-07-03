@@ -1,3 +1,4 @@
+//app.js
 const API = window.location.origin + '/api';
 let items = [];
 let categories = [];
@@ -414,7 +415,15 @@ async function submitOrder() {
 
     const order = await res.json();
     window.lastOrder = order;
-    window.lastOrderItems = cart.map(c => ({...c})); // save copy of cart items
+    window.lastOrderItems = cart.map(c => ({...c}));
+
+    // Save secure token so only this browser can cancel/confirm this order later
+    if (order.customer_token) {
+      const tokens = JSON.parse(localStorage.getItem('cafeOrderTokens') || '{}');
+      tokens[order.id] = order.customer_token;
+      tokens[order.daily_order_number || order.id] = order.customer_token;
+      localStorage.setItem('cafeOrderTokens', JSON.stringify(tokens));
+    }
 
     document.getElementById('successOrderId').textContent = '#' + (order.daily_order_number || order.id);
     document.getElementById('successModal').classList.remove('hidden');
@@ -430,7 +439,7 @@ function showCustomerReceipt() {
   if (!window.lastOrder) return;
   const order = window.lastOrder;
   const items = window.lastOrderItems || [];
-  const cafeName = settings.cafe_name || 'كاراكالا كافيه';
+  const cafeName = settings.cafe_name || 'Caracalla Cafe';
 
   let itemsHtml = '';
   let total = 0;
@@ -502,7 +511,7 @@ function showCafeLocation() {
       attribution: '© OpenStreetMap'
     }).addTo(cafeMap);
     L.marker([cafeLocation.lat, cafeLocation.lng]).addTo(cafeMap)
-      .bindPopup(settings.cafe_name || 'كاراكالا كافيه').openPopup();
+      .bindPopup(settings.cafe_name || 'Caracalla Cafe').openPopup();
 
     // Show user location and distance if available
     if (navigator.geolocation) {
@@ -560,7 +569,10 @@ async function trackOrder() {
   if (!orderId) return;
 
   try {
-    const res = await fetch(`${API}/orders/track/${orderId}`);
+    const tokens = JSON.parse(localStorage.getItem('cafeOrderTokens') || '{}');
+    const token = tokens[orderId];
+    const url = token ? `${API}/orders/track/${orderId}?token=${encodeURIComponent(token)}` : `${API}/orders/track/${orderId}`;
+    const res = await fetch(url);
     if (!res.ok) throw new Error('Order not found');
     const order = await res.json();
 
@@ -700,11 +712,16 @@ async function trackOrder() {
 async function confirmReceived(orderId) {
   const confirmed = await showConfirm('هل أنت متأكد من استلام الطلب؟ بعد التأكيد لن يتمكن أحد من رؤية موقعك.', 'تأكيد الاستلام', '✅');
   if (!confirmed) return;
+
+  const tokens = JSON.parse(localStorage.getItem('cafeOrderTokens') || '{}');
+  const token = tokens[orderId] || (window.lastOrder && window.lastOrder.id == orderId ? window.lastOrder.customer_token : null);
+  if (!token) { showToast('لا يمكن تأكيد الاستلام من هذا الجهاز ❌', 'error'); return; }
+
   try {
     const res = await fetch(`${API}/orders/${orderId}/customer-status`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status: 'completed' })
+      body: JSON.stringify({ status: 'completed', token })
     });
     if (!res.ok) {
       const err = await res.json();
@@ -720,11 +737,16 @@ async function confirmReceived(orderId) {
 async function cancelCustomerOrder(orderId) {
   const confirmed = await showConfirm('هل تريد إلغاء هذا الطلب؟', 'تأكيد الإلغاء', '❌');
   if (!confirmed) return;
+
+  const tokens = JSON.parse(localStorage.getItem('cafeOrderTokens') || '{}');
+  const token = tokens[orderId] || (window.lastOrder && window.lastOrder.id == orderId ? window.lastOrder.customer_token : null);
+  if (!token) { showToast('لا يمكن الإلغاء من هذا الجهاز ❌', 'error'); return; }
+
   try {
     const res = await fetch(`${API}/orders/${orderId}/customer-status`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status: 'cancelled' })
+      body: JSON.stringify({ status: 'cancelled', token })
     });
     if (!res.ok) {
       const err = await res.json();

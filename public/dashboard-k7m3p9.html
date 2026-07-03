@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>كاراكالا كافيه - لوحة التحكم</title>
+  <title>Caracalla Cafe - لوحة التحكم</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <link rel="stylesheet" href="style.css">
 </head>
@@ -11,7 +11,7 @@
   <!-- Login Screen -->
   <div class="login-screen" id="loginScreen">
     <div class="login-box">
-      <h1>☕ كاراكالا كافيه</h1>
+      <h1>☕ Caracalla Cafe</h1>
       <p>لوحة التحكم</p>
       <div class="login-error" id="loginError"></div>
       <div class="form-group">
@@ -28,7 +28,7 @@
   <!-- Main Dashboard -->
   <div id="dashboard" class="hidden">
     <nav>
-      <h1><img id="navLogo" src="" class="logo-img" style="display:none;"><span id="navTitle">☕ كاراكالا كافيه</span></h1>
+      <h1><img id="navLogo" src="" class="logo-img" style="display:none;"><span id="navTitle">☕ Caracalla Cafe</span></h1>
       <div class="links">
         <a href="#" onclick="toggleTheme()"><span id="themeIcon">🌙</span></a>
         <a href="/menu" target="_blank">القائمة</a>
@@ -190,6 +190,10 @@
     <div class="modal">
       <h2>تعديل الصنف</h2>
       <input type="hidden" id="editId">
+      <div class="form-group">
+        <label>الاسم</label>
+        <input type="text" id="editName" placeholder="اسم الصنف">
+      </div>
       <div class="form-group">
         <label>القسم</label>
         <select id="editCategory"></select>

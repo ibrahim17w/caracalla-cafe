@@ -1,3 +1,4 @@
+//server.js
 require('dotenv').config();
 const express = require('express');
 const { Pool } = require('pg');
@@ -372,6 +373,24 @@ app.get('/api/orders/track/:dailyNum', async (req, res) => {
       item.additions = addResult.rows;
     }
     order.daily_order_number = dailyNum;
+
+    // If caller has the correct token, return full details; otherwise redact private data
+    const token = req.query.token;
+    let fullAccess = false;
+    if (token) {
+      try {
+        const decoded = jwt.verify(token, JWT_SECRET);
+        if (decoded.oid === order.id) fullAccess = true;
+      } catch {}
+    }
+    if (!fullAccess) {
+      delete order.phone;
+      delete order.latitude;
+      delete order.longitude;
+      delete order.address_text;
+      delete order.customer_name;
+    }
+    
     res.json(order);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
@@ -428,6 +447,9 @@ app.post('/api/orders', rateLimitOrders, async (req, res) => {
     );
     const order = orderResult.rows[0];
     order.daily_order_number = nextDailyNum;
+
+    // Secure stateless token for this order (customer can cancel/confirm only with this)
+    order.customer_token = jwt.sign({ oid: order.id, daily: nextDailyNum }, JWT_SECRET, { expiresIn: '7d' });
     for (const it of items) {
       const itemSubtotal = it.price * it.quantity + (it.additions || []).reduce((s, a) => s + (a.price || 0) * it.quantity, 0);
       const oiResult = await client.query(
@@ -496,9 +518,16 @@ app.delete('/api/orders/:id', verifyToken, requireRole(['owner']), async (req, r
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// ===================== CUSTOMER STATUS (no auth) =====================
+// ===================== CUSTOMER STATUS (token required) =====================
 app.put('/api/orders/:id/customer-status', async (req, res) => {
-  const { status } = req.body;
+  const { status, token } = req.body;
+  if (!token) return res.status(401).json({ error: 'Token required' });
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET);
+    if (decoded.oid !== parseInt(req.params.id)) return res.status(403).json({ error: 'Invalid token' });
+  } catch (e) {
+    return res.status(401).json({ error: 'Invalid or expired token' });
+  }
   if (status !== 'completed' && status !== 'cancelled') {
     return res.status(400).json({ error: 'Invalid status for customer' });
   }
