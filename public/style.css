@@ -876,6 +876,7 @@ input[type="file"] {
 .font-bold { font-weight: 700; }
 
 /* ===== PRINT RECEIPT ===== */
+/* ===== PRINT RECEIPT ===== */
 @media print {
   body * { visibility: hidden; }
   #receiptPrint, #receiptPrint *,
@@ -886,6 +887,15 @@ input[type="file"] {
     top: 0;
     width: 100%;
   }
+  #receiptPrint .receipt-header,
+  #customerReceiptPrint .receipt-header {
+    border-bottom: none !important;
+  }
+  #receiptPrint .receipt-footer,
+  #customerReceiptPrint .receipt-footer {
+    border-top: none !important;
+  }
+}
   #receiptPrint hr, #customerReceiptPrint hr {
     display: block !important;
     visibility: visible !important;
@@ -895,7 +905,6 @@ input[type="file"] {
     width: 100% !important;
     height: 0 !important;
   }
-}
 /* ===== TOAST NOTIFICATIONS ===== */
 .toast-container {
   position: fixed;

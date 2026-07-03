@@ -707,6 +707,7 @@ app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.ht
 app.get('/menu', (req, res) => res.sendFile(path.join(__dirname, 'public', 'menu.html')));
 app.get('/dashboard-k7m3p9', (req, res) => res.sendFile(path.join(__dirname, 'public', 'dashboard-k7m3p9.html')));
 app.get('/portal-x4y8z2', (req, res) => res.sendFile(path.join(__dirname, 'public', 'portal-x4y8z2.html')));
+
 app.listen(PORT, () => {
   console.log(`Caracalla Cafe server running on port ${PORT}`);
   console.log(`Customer menu: /menu`);

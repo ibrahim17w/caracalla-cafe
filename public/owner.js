@@ -1143,7 +1143,6 @@ function closeMapModal() {
   if (orderMap) { orderMap.remove(); orderMap = null; }
 }
 
-// ===================== RECEIPT =====================
 async function generateReceipt(orderId) {
   const order = allOrders.find(o => o.id === orderId);
   if (!order) return;
@@ -1184,6 +1183,7 @@ async function generateReceipt(orderId) {
   const isDelivery = order.order_type === 'delivery';
   const customerLabel = isDelivery ? 'رقم الزبون' : 'رقم الطاولة';
   const customerValue = isDelivery ? (order.phone || '-') : (order.table_number || '-');
+  const dashedLine = `<div style="border-top:1px dashed #7A6B5F;margin:0.5rem 0;height:0;"></div>`;
 
   const receiptHtml = `
     <div id="receiptPrint" class="receipt">
@@ -1194,15 +1194,15 @@ async function generateReceipt(orderId) {
         ${cafeAddress ? `<div style="font-size:0.8rem;color:var(--text-muted);margin-top:0.2rem;">${cafeAddress}</div>` : ''}
       </div>
       <div class="receipt-line" style="justify-content:center;font-size:0.85rem;color:var(--text-muted);margin-bottom:0.5rem;"><span>${formatTime(order.created_at)}</span></div>
-      ${customFieldsHtml ? customFieldsHtml + '<hr style="border:1px dashed var(--border);margin:0.5rem 0;">' : ''}
+      ${customFieldsHtml ? customFieldsHtml + dashedLine : ''}
       <div class="receipt-line"><span>الزبون:</span><span>${order.customer_name || 'زبون'}</span></div>
-      <hr style="border:1px dashed var(--border);margin:0.5rem 0;">
+      ${dashedLine}
       <div class="receipt-line"><span>${customerLabel}:</span><span>${customerValue}</span></div>
-      <hr style="border:1px dashed var(--border);margin:0.5rem 0;">
+      ${dashedLine}
       <div class="receipt-line"><span>رقم الطلب:</span><span>#${order.daily_order_number || order.id}</span></div>
-      <hr style="border:1px dashed var(--border);margin:0.5rem 0;">
+      ${dashedLine}
       ${itemsHtml}
-      <hr style="border:1px dashed var(--border);margin:0.5rem 0;">
+      ${dashedLine}
       <div class="receipt-line receipt-total"><span>المجموع:</span><span>${formatPrice(order.total_amount)}</span></div>
       <div class="receipt-footer" style="border-top:none;padding-top:0.5rem;margin-top:0.5rem;">
         ${allSettings.receipt_footer || 'شكراً لزيارتكم!'}
@@ -1246,9 +1246,8 @@ function printReceipt() {
         }
         .receipt-header { 
           text-align: center; 
-          margin-bottom: 6px; 
+          margin-bottom: 4px; 
           padding-bottom: 4px; 
-          border-bottom: 1px dashed #000; 
         }
         .receipt-header h3 { margin: 0 0 4px; font-size: 15px; }
         .receipt-header img { max-width: 50px; height: auto; margin-bottom: 4px; }
@@ -1261,22 +1260,17 @@ function printReceipt() {
         }
         .receipt-line span:first-child { margin-left: 8px; }
         .receipt-total { 
-          border-top: 1px dashed #000; 
-          margin-top: 4px; 
-          padding-top: 4px; 
           font-weight: 800; 
           font-size: 14px; 
         }
         .receipt-footer { 
           text-align: center; 
-          margin-top: 6px; 
+          margin-top: 4px; 
           padding-top: 4px; 
-          border-top: 1px dashed #000; 
           font-size: 11px; 
           color: #333; 
         }
         .receipt-footer img { width: 70px; height: 70px; margin-top: 4px; }
-        hr { display: none; }
         @media print { 
           body { padding: 0; margin: 0; } 
           .receipt { padding: 4px; }
