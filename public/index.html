@@ -117,6 +117,24 @@
       0%, 80%, 100% { opacity: 0; }
       40% { opacity: 1; }
     }
+        .open-status-splash {
+      margin-top: 1rem;
+      padding: 0.5rem 1.5rem;
+      border-radius: 20px;
+      font-size: 1rem;
+      font-weight: 700;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .open-status-splash.open {
+      background: #E8F5E9;
+      color: #5A8F5A;
+    }
+    .open-status-splash.closed {
+      background: #FFEBEE;
+      color: #B85450;
+    }
   </style>
 </head>
 <body>
@@ -134,6 +152,8 @@
     <div class="splash-contact" id="splashContact">
       <span class="loading-dots">جاري التحميل...</span>
     </div>
+    <div class="open-status-splash" id="splashOpenStatus" style="display:none;"></div>
+    <div class="open-status-splash" id="splashOpenStatus" style="display:none;"></div>
   </div>
 
   <!-- Location Modal -->
@@ -179,7 +199,34 @@
         if (settings.cafe_lat && settings.cafe_lng) {
           cafeLocation = { lat: parseFloat(settings.cafe_lat), lng: parseFloat(settings.cafe_lng) };
         }
-
+        
+        // Open/close status
+        const openStatusEl = document.getElementById('splashOpenStatus');
+        if (openStatusEl && (settings.cafe_open_hours || settings.cafe_force_open)) {
+          const now = new Date();
+          const syriaTime = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Damascus' }));
+          const currentHour = syriaTime.getHours();
+          const currentMinute = syriaTime.getMinutes();
+          const currentTime = currentHour * 60 + currentMinute;
+          
+          let isOpen = false;
+          if (settings.cafe_force_open === 'true') {
+            isOpen = true;
+          } else if (settings.cafe_open_hours) {
+            try {
+              const hours = JSON.parse(settings.cafe_open_hours);
+              const [openH, openM] = (hours.open || '08:00').split(':').map(Number);
+              const [closeH, closeM] = (hours.close || '23:00').split(':').map(Number);
+              const openTime = openH * 60 + openM;
+              const closeTime = closeH * 60 + closeM;
+              isOpen = currentTime >= openTime && currentTime < closeTime;
+            } catch (e) {}
+          }
+          
+          openStatusEl.style.display = 'inline-flex';
+          openStatusEl.className = 'open-status-splash ' + (isOpen ? 'open' : 'closed');
+          openStatusEl.innerHTML = (isOpen ? '🟢 ' : '🔴 ') + (isOpen ? 'مفتوح الآن' : 'مغلق الآن');
+        }
         let contactHtml = '';
         if (settings.cafe_phone) contactHtml += `<div class="contact-item">📞 <a href="tel:${settings.cafe_phone}">${settings.cafe_phone}</a></div>`;
         if (settings.cafe_address) contactHtml += `<div class="contact-item">📍 ${settings.cafe_address}</div>`;

@@ -169,6 +169,20 @@ function applySettings() {
   }
   if (allSettings.cafe_phone) document.getElementById('setCafePhone').value = allSettings.cafe_phone;
   if (allSettings.cafe_address) document.getElementById('setCafeAddress').value = allSettings.cafe_address;
+  if (allSettings.cafe_description) document.getElementById('setCafeDesc').value = allSettings.cafe_description;
+  if (allSettings.cafe_open_hours) {
+    try {
+      const hours = JSON.parse(allSettings.cafe_open_hours);
+      document.getElementById('setOpenTime').value = hours.open || '08:00';
+      document.getElementById('setCloseTime').value = hours.close || '23:00';
+    } catch (e) {}
+  }
+  const openToggle = document.getElementById('setCafeOpen');
+  if (openToggle) {
+    openToggle.checked = allSettings.cafe_force_open === 'true';
+  }
+  // Update nav open status indicator
+  updateNavOpenStatus();
   if (allSettings.receipt_footer) document.getElementById('setReceiptFooter').value = allSettings.receipt_footer;
   if (allSettings.cafe_logo) {
     const logo = document.getElementById('navLogo');
@@ -191,7 +205,51 @@ function applySettings() {
   }
   renderReceiptFields();
 }
+function updateNavOpenStatus() {
+  const navStatus = document.getElementById('navOpenStatus');
+  if (!navStatus) return;
+  
+  const now = new Date();
+  const syriaTime = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Damascus' }));
+  const currentHour = syriaTime.getHours();
+  const currentMinute = syriaTime.getMinutes();
+  const currentTime = currentHour * 60 + currentMinute;
+  
+  let isOpen = false;
+  if (allSettings.cafe_force_open === 'true') {
+    isOpen = true;
+  } else if (allSettings.cafe_open_hours) {
+    try {
+      const hours = JSON.parse(allSettings.cafe_open_hours);
+      const [openH, openM] = (hours.open || '08:00').split(':').map(Number);
+      const [closeH, closeM] = (hours.close || '23:00').split(':').map(Number);
+      const openTime = openH * 60 + openM;
+      const closeTime = closeH * 60 + closeM;
+      isOpen = currentTime >= openTime && currentTime < closeTime;
+    } catch (e) {}
+  }
+  
+  navStatus.style.display = 'inline-block';
+  navStatus.textContent = isOpen ? '🟢 مفتوح' : '🔴 مغلق';
+  navStatus.style.color = isOpen ? 'var(--success)' : 'var(--danger)';
+}
 
+async function toggleCafeOpen() {
+  const current = allSettings.cafe_force_open === 'true';
+  const newVal = current ? 'false' : 'true';
+  try {
+    await fetch(`${API}/settings`, {
+      method: 'POST',
+      headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ key: 'cafe_force_open', value: newVal })
+    });
+    allSettings.cafe_force_open = newVal;
+    updateNavOpenStatus();
+    showToast(newVal === 'true' ? 'المقهى مفتوح الآن ✅' : 'المقهى مغلق الآن 🔴', 'success');
+  } catch (e) {
+    showToast('تعذر تحديث الحالة ❌', 'error');
+  }
+}
 function populateCategorySelects() {
   const opts = allCategories.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
   document.getElementById('newCategory').innerHTML = '<option value="">بدون قسم</option>' + opts;
@@ -268,9 +326,58 @@ function generateTableQR() {
       };
       document.getElementById('tableQrPrintBtn').onclick = () => {
         const w = window.open('', '_blank');
-        w.document.write(`<html><body style="text-align:center;padding:2rem;"><img src="${data.qr}" style="width:300px;height:300px;"><p style="font-size:1.2rem;font-weight:bold;margin-top:1rem;">${cafeName} - طاولة ${tableNum}</p><p>${data.url}</p></body></html>`);
+        w.document.write(`
+          <html dir="rtl">
+          <head>
+            <meta charset="UTF-8">
+            <style>
+              @page { size: 80mm 80mm; margin: 0; }
+              * { margin: 0; padding: 0; box-sizing: border-box; }
+              body {
+                width: 80mm;
+                height: 80mm;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                justify-content: center;
+                padding: 8mm;
+                font-family: 'Tajawal', sans-serif;
+                text-align: center;
+              }
+              .logo-text {
+                font-size: 14pt;
+                font-weight: 800;
+                color: #B07D4B;
+                margin-bottom: 3mm;
+              }
+              .table-text {
+                font-size: 18pt;
+                font-weight: 800;
+                color: #2C1810;
+                margin-bottom: 4mm;
+              }
+              .qr-img {
+                width: 50mm;
+                height: 50mm;
+                object-fit: contain;
+              }
+              .scan-text {
+                font-size: 9pt;
+                color: #7A6B5F;
+                margin-top: 3mm;
+              }
+            </style>
+          </head>
+          <body>
+            <div class="logo-text">${cafeName}</div>
+            <div class="table-text">طاولة ${tableNum}</div>
+            <img src="${data.qr}" class="qr-img" alt="QR">
+            <div class="scan-text">امسح للطلب</div>
+          </body>
+          </html>
+        `);
         w.document.close();
-        w.onload = () => { w.print(); setTimeout(() => w.close(), 500); };
+        w.onload = () => { w.print(); setTimeout(() => w.close(), 800); };
       };
     })
     .catch(() => {
@@ -1237,8 +1344,13 @@ async function saveSettings() {
   const settings = [
     { key: 'cafe_phone', value: document.getElementById('setCafePhone').value },
     { key: 'cafe_address', value: document.getElementById('setCafeAddress').value },
+    { key: 'cafe_description', value: document.getElementById('setCafeDesc').value },
   ];
-
+  
+  const openTime = document.getElementById('setOpenTime').value || '08:00';
+  const closeTime = document.getElementById('setCloseTime').value || '23:00';
+  settings.push({ key: 'cafe_open_hours', value: JSON.stringify({ open: openTime, close: closeTime }) });
+  settings.push({ key: 'cafe_force_open', value: document.getElementById('setCafeOpen').checked ? 'true' : 'false' });
   if (logoPath) settings.push({ key: 'cafe_logo', value: logoPath });
   if (menuImagePath) settings.push({ key: 'cafe_menu_image', value: menuImagePath });
   if (cafeSettingMarker) {

@@ -29,7 +29,7 @@ async function loadMenu() {
     settings = await settingsRes.json();
     bestSellers = await bestSellersRes.json().catch(() => []);
 
-    // Update cafe name/logo
+    // Update cafe name/logo/description
     if (settings.cafe_name) {
       document.getElementById('cafeName').textContent = settings.cafe_name;
       document.getElementById('splashCafeName').textContent = settings.cafe_name;
@@ -39,11 +39,49 @@ async function loadMenu() {
       logo.src = settings.cafe_logo;
       logo.style.display = 'inline';
       const splashLogo = document.getElementById('splashLogo');
-      splashLogo.src = settings.cafe_logo;
-      splashLogo.style.display = 'inline';
+      if (splashLogo) {
+        splashLogo.src = settings.cafe_logo;
+        splashLogo.style.display = 'inline';
+      }
+      const splashLogoPlaceholder = document.getElementById('splashLogoPlaceholder');
+      if (splashLogoPlaceholder) splashLogoPlaceholder.style.display = 'none';
+    } else {
+      const splashLogo = document.getElementById('splashLogo');
+      if (splashLogo) splashLogo.style.display = 'none';
+      const splashLogoPlaceholder = document.getElementById('splashLogoPlaceholder');
+      if (splashLogoPlaceholder) splashLogoPlaceholder.style.display = 'flex';
+    } 
+    else {
+      const splashLogo = document.getElementById('splashLogo');
+      if (splashLogo) splashLogo.style.display = 'none';
+      const splashLogoPlaceholder = document.getElementById('splashLogoPlaceholder');
+      if (splashLogoPlaceholder) splashLogoPlaceholder.style.display = 'flex';
+    }
+    if (settings.cafe_description) {
+      document.getElementById('splashDesc').textContent = settings.cafe_description;
     }
     if (settings.cafe_menu_image) {
       document.getElementById('menuSplashBg').style.backgroundImage = `url('${settings.cafe_menu_image}')`;
+    }
+    // Open/close status
+    const openStatusEl = document.getElementById('openStatus');
+    if (openStatusEl && settings.cafe_open_hours) {
+      const now = new Date();
+      const syriaTime = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Damascus' }));
+      const currentHour = syriaTime.getHours();
+      const currentMinute = syriaTime.getMinutes();
+      const currentTime = currentHour * 60 + currentMinute;
+      
+      const [openH, openM] = (settings.cafe_open_hours.open || '08:00').split(':').map(Number);
+      const [closeH, closeM] = (settings.cafe_open_hours.close || '23:00').split(':').map(Number);
+      const openTime = openH * 60 + openM;
+      const closeTime = closeH * 60 + closeM;
+      
+      const isOpen = currentTime >= openTime && currentTime < closeTime;
+      openStatusEl.style.display = 'inline-flex';
+      openStatusEl.className = 'open-status ' + (isOpen ? 'open' : 'closed');
+      document.getElementById('openStatusIcon').textContent = isOpen ? '🟢' : '🔴';
+      document.getElementById('openStatusText').textContent = isOpen ? 'مفتوح الآن' : 'مغلق الآن';
     }
     if (settings.cafe_lat && settings.cafe_lng) {
       cafeLocation = { lat: parseFloat(settings.cafe_lat), lng: parseFloat(settings.cafe_lng) };
@@ -90,18 +128,17 @@ function renderCategoriesSplash() {
     const div = document.createElement('div');
     div.className = 'category-card';
     div.onclick = () => showCategoryItems(cat.id);
-    // Use image_path or imagepath — handle both cases
     const imgSrc = cat.image_path || cat.imagepath || null;
     const imgHtml = imgSrc 
-      ? `<div class="category-img"><img src="${imgSrc}" alt="${cat.name}" onerror="this.parentElement.innerHTML='<span style=font-size:3rem;>☕</span>'"></div>`
-      : `<div class="category-img"><span style="font-size:3rem;">☕</span></div>`;
+      ? `<div class="category-img"><img src="${imgSrc}" alt="${cat.name}" loading="lazy" onerror="this.style.display='none'; this.parentElement.innerHTML='<span style=font-size:2.5rem;>☕</span>'"></div>`
+      : `<div class="category-img"><span style="font-size:2.5rem;">☕</span></div>`;
     div.innerHTML = `${imgHtml}<div class="category-name">${cat.name}</div>`;
     grid.appendChild(div);
   });
   const allDiv = document.createElement('div');
   allDiv.className = 'category-card';
   allDiv.onclick = () => showCategoryItems('all');
-  allDiv.innerHTML = `<div class="category-img"><span style="font-size:3rem;">📋</span></div><div class="category-name">جميع الأصناف</div>`;
+  allDiv.innerHTML = `<div class="category-img"><span style="font-size:2.5rem;">📋</span></div><div class="category-name">جميع الأصناف</div>`;
   grid.appendChild(allDiv);
 }
 
@@ -452,7 +489,7 @@ async function submitOrder() {
   const payload = {
     customer_name: name,
     items: orderItems,
-    notes: '',
+    notes: document.getElementById('modalNotes')?.value || '',
     order_type: selectedOrderType
   };
 

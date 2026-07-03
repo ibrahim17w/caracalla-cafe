@@ -31,6 +31,7 @@
       <h1><img id="navLogo" src="" class="logo-img" style="display:none;"><span id="navTitle">☕ Caracalla Cafe</span></h1>
       <div class="links">
         <a href="#" onclick="toggleTheme()"><span id="themeIcon">🌙</span></a>
+        <a href="#" id="navOpenStatus" onclick="toggleCafeOpen()" title="تبديل حالة المقهى" style="display:none;"></a>
         <a href="/menu" target="_blank">القائمة</a>
         <a href="portal-x4y8z2.html" target="_blank">السائق</a>
         <a href="#" onclick="logout()">خروج</a>
@@ -157,6 +158,24 @@
           <div class="form-group">
             <label>العنوان</label>
             <input type="text" id="setCafeAddress" placeholder="عنوان المقهى">
+          </div>
+          <div class="form-group">
+            <label>وصف المقهى (يظهر في القائمة)</label>
+            <textarea id="setCafeDesc" rows="2" placeholder="وصف قصير يظهر للزبائن..."></textarea>
+          </div>
+          <div class="form-group">
+            <label>ساعات العمل</label>
+            <div class="flex gap-1 align-center">
+              <input type="time" id="setOpenTime" value="08:00" style="flex:1;">
+              <span>إلى</span>
+              <input type="time" id="setCloseTime" value="23:00" style="flex:1;">
+            </div>
+          </div>
+          <div class="form-group">
+            <label>
+              <input type="checkbox" id="setCafeOpen" style="width:auto;margin-left:0.5rem;">
+              المقهى مفتوح (تجاوز ساعات العمل)
+            </label>
           </div>
           <div class="form-group">
             <label>شعار المقهى (اختياري)</label>

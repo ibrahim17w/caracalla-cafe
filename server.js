@@ -443,21 +443,14 @@ app.post('/api/orders', rateLimitOrders, async (req, res) => {
     // Get today's date in Syria timezone
     const today = getSyriaDate();
     
-    // Debug: log what we're searching for
-    console.log('Creating order for date:', today);
-    
     // Find the highest daily order number for today
-    // Use a subquery to handle NULLs properly
     const maxDailyResult = await client.query(
-      `SELECT COALESCE((SELECT MAX(daily_order_number) FROM orders 
-        WHERE DATE(created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Damascus') = $1
-        AND daily_order_number IS NOT NULL), 0) as max_num`,
+      `SELECT COALESCE(MAX(daily_order_number), 0) as max_num FROM orders 
+       WHERE DATE(created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Damascus') = $1`,
       [today]
     );
     const maxNum = parseInt(maxDailyResult.rows[0].max_num) || 0;
     const nextDailyNum = maxNum + 1;
-    console.log('Next daily order number:', nextDailyNum, '(max was:', maxNum, ')');
-
     const orderResult = await client.query(
       'INSERT INTO orders (customer_name, phone, table_number, order_type, address_text, latitude, longitude, status, total_amount, notes, daily_order_number) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING *',
       [customer_name || null, phone || null, table_number || null, order_type || 'dine_in', address_text || null, latitude || null, longitude || null, 'pending', total, notes || '', nextDailyNum]
@@ -663,6 +656,7 @@ app.get('/api/qrcode', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+// Helper: get date in Syria timezone
 function getSyriaDate(d = new Date()) {
   const formatter = new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Damascus', year: 'numeric', month: '2-digit', day: '2-digit' });
   const parts = formatter.formatToParts(d);
