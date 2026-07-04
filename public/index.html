@@ -263,7 +263,6 @@
             openStatusEl.style.display = 'inline-flex';
             openStatusEl.className = 'open-status-splash ' + (isOpen ? 'open' : 'closed');
             let statusText = isOpen ? 'مفتوح الآن' : 'مغلق الآن';
-            if (forceClosed) statusText += ' (خارج أوقات الدوام)';
             openStatusEl.innerHTML = (isOpen ? '🟢 ' : '🔴 ') + statusText;
           }
         }
