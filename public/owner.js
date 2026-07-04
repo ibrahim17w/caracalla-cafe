@@ -229,6 +229,14 @@ function updateNavOpenStatus() {
   const navStatus = document.getElementById('navOpenStatus');
   if (!navStatus) return;
   
+  // Force closed takes precedence over force open
+  if (allSettings.cafe_force_open === 'false') {
+    navStatus.style.display = 'inline-block';
+    navStatus.textContent = '🔴 مغلق';
+    navStatus.style.color = 'var(--danger)';
+    return;
+  }
+  
   const now = new Date();
   const syriaTime = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Damascus' }));
   const currentHour = syriaTime.getHours();
@@ -236,8 +244,11 @@ function updateNavOpenStatus() {
   const currentTime = currentHour * 60 + currentMinute;
   
   let isOpen = false;
+  let hasHours = false;
+  
   if (allSettings.cafe_force_open === 'true') {
     isOpen = true;
+    hasHours = true;
   } else if (allSettings.cafe_open_hours) {
     try {
       const hours = JSON.parse(allSettings.cafe_open_hours);
@@ -246,12 +257,18 @@ function updateNavOpenStatus() {
       const openTime = openH * 60 + openM;
       const closeTime = closeH * 60 + closeM;
       isOpen = currentTime >= openTime && currentTime < closeTime;
+      hasHours = true;
     } catch (e) {}
   }
   
   navStatus.style.display = 'inline-block';
-  navStatus.textContent = isOpen ? '🟢 مفتوح' : '🔴 مغلق';
-  navStatus.style.color = isOpen ? 'var(--success)' : 'var(--danger)';
+  if (!hasHours) {
+    navStatus.textContent = '⚪ غير محدد';
+    navStatus.style.color = 'var(--text-muted)';
+  } else {
+    navStatus.textContent = isOpen ? '🟢 مفتوح' : '🔴 مغلق';
+    navStatus.style.color = isOpen ? 'var(--success)' : 'var(--danger)';
+  }
 }
 
 async function toggleCafeOpen() {

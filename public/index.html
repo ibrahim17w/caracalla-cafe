@@ -228,7 +228,7 @@
         
         // Open/close status
         const openStatusEl = document.getElementById('splashOpenStatus');
-        if (openStatusEl && (settings.cafe_open_hours || settings.cafe_force_open)) {
+        if (openStatusEl) {
           const now = new Date();
           const syriaTime = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Damascus' }));
           const currentHour = syriaTime.getHours();
@@ -236,8 +236,17 @@
           const currentTime = currentHour * 60 + currentMinute;
           
           let isOpen = false;
-          if (splashSettings.cafe_force_open === 'true') {
+          let hasHours = false;
+          let forceClosed = false;
+          
+          // Check force closed first (takes precedence)
+          if (splashSettings.cafe_force_open === 'false') {
+            isOpen = false;
+            hasHours = true;
+            forceClosed = true;
+          } else if (splashSettings.cafe_force_open === 'true') {
             isOpen = true;
+            hasHours = true;
           } else if (settings.cafe_open_hours) {
             try {
               const hours = typeof settings.cafe_open_hours === 'string' ? JSON.parse(settings.cafe_open_hours) : settings.cafe_open_hours;
@@ -246,12 +255,17 @@
               const openTime = openH * 60 + openM;
               const closeTime = closeH * 60 + closeM;
               isOpen = currentTime >= openTime && currentTime < closeTime;
+              hasHours = true;
             } catch (e) {}
           }
           
-          openStatusEl.style.display = 'inline-flex';
-          openStatusEl.className = 'open-status-splash ' + (isOpen ? 'open' : 'closed');
-          openStatusEl.innerHTML = (isOpen ? '🟢 ' : '🔴 ') + (isOpen ? 'مفتوح الآن' : 'مغلق الآن');
+          if (hasHours) {
+            openStatusEl.style.display = 'inline-flex';
+            openStatusEl.className = 'open-status-splash ' + (isOpen ? 'open' : 'closed');
+            let statusText = isOpen ? 'مفتوح الآن' : 'مغلق الآن';
+            if (forceClosed) statusText += ' (خارج أوقات الدوام)';
+            openStatusEl.innerHTML = (isOpen ? '🟢 ' : '🔴 ') + statusText;
+          }
         }
         
         // Show open hours
