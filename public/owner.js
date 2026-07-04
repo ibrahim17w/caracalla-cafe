@@ -1196,8 +1196,8 @@ async function generateReceipt(orderId) {
 
   const receiptHtml = `
     <div id="receiptPrint" class="receipt">
-      <div class="receipt-header" style="border-bottom:none;padding-bottom:0.3rem;margin-bottom:0.3rem;">
-        ${allSettings.cafe_logo ? `<img src="${allSettings.cafe_logo}" style="width:60px;height:60px;border-radius:50%;object-fit:cover;margin-bottom:0.5rem;display:block;" crossorigin="anonymous">` : ''}
+      <div class="receipt-header" style="border-bottom:none;padding-bottom:0.3rem;margin-bottom:0.3rem;text-align:center;">
+        ${allSettings.cafe_logo ? `<div style="text-align:center;margin-bottom:0.5rem;"><img src="${allSettings.cafe_logo}" style="width:60px;height:60px;border-radius:50%;object-fit:cover;margin:0 auto;display:block;" crossorigin="anonymous"></div>` : ''}
         <h3>${cafeName}</h3>
         ${cafePhone ? `<div style="font-size:0.85rem;color:var(--text-muted);margin-top:0.2rem;">${cafePhone}</div>` : ''}
         ${cafeAddress ? `<div style="font-size:0.8rem;color:var(--text-muted);margin-top:0.2rem;">${cafeAddress}</div>` : ''}
