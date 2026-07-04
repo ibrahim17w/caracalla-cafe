@@ -196,11 +196,14 @@
     let splashMap = null;
     let cafeLocation = null;
 
+    let splashSettings = {};
+
     async function loadSplashData() {
       try {
         const res = await fetch(`${API}/settings`);
         if (!res.ok) throw new Error('Failed');
         const settings = await res.json();
+        splashSettings = settings;
 
         if (settings.cafe_name) {
           document.getElementById('splashName').textContent = settings.cafe_name;
@@ -229,7 +232,7 @@
           const currentTime = currentHour * 60 + currentMinute;
           
           let isOpen = false;
-          if (settings.cafe_force_open === 'true') {
+          if (splashSettings.cafe_force_open === 'true') {
             isOpen = true;
           } else if (settings.cafe_open_hours) {
             try {
@@ -291,7 +294,7 @@
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
           attribution: '© OpenStreetMap'
         }).addTo(splashMap);
-        const logoUrl = settings.cafe_logo || '';
+        const logoUrl = splashSettings.cafe_logo || '';
         const cafeIconHtml = logoUrl
           ? `<div style="width:50px;height:50px;border-radius:50%;overflow:hidden;border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.3);background:white;"><img src="${logoUrl}" style="width:100%;height:100%;object-fit:cover;"></div>`
           : `<div style="width:50px;height:50px;border-radius:50%;background:#B07D4B;display:flex;align-items:center;justify-content:center;color:white;font-size:22px;border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.3);">☕</div>`;
@@ -303,7 +306,7 @@
           popupAnchor: [0, -25]
         });
         L.marker([cafeLocation.lat, cafeLocation.lng], { icon: cafeIcon }).addTo(splashMap)
-          .bindPopup(settings.cafe_name || 'المقهى').openPopup();
+          .bindPopup(splashSettings.cafe_name || 'المقهى').openPopup();
         if (navigator.geolocation) {
           navigator.geolocation.getCurrentPosition((pos) => {
             const userLat = pos.coords.latitude;
