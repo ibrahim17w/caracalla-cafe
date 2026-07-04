@@ -291,8 +291,19 @@
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
           attribution: '© OpenStreetMap'
         }).addTo(splashMap);
-        L.marker([cafeLocation.lat, cafeLocation.lng]).addTo(splashMap)
-          .bindPopup('المقهى').openPopup();
+        const logoUrl = settings.cafe_logo || '';
+        const cafeIconHtml = logoUrl
+          ? `<div style="width:50px;height:50px;border-radius:50%;overflow:hidden;border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.3);background:white;"><img src="${logoUrl}" style="width:100%;height:100%;object-fit:cover;"></div>`
+          : `<div style="width:50px;height:50px;border-radius:50%;background:#B07D4B;display:flex;align-items:center;justify-content:center;color:white;font-size:22px;border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.3);">☕</div>`;
+        const cafeIcon = L.divIcon({
+          className: 'cafe-logo-marker',
+          html: cafeIconHtml,
+          iconSize: [50, 50],
+          iconAnchor: [25, 25],
+          popupAnchor: [0, -25]
+        });
+        L.marker([cafeLocation.lat, cafeLocation.lng], { icon: cafeIcon }).addTo(splashMap)
+          .bindPopup(settings.cafe_name || 'المقهى').openPopup();
         if (navigator.geolocation) {
           navigator.geolocation.getCurrentPosition((pos) => {
             const userLat = pos.coords.latitude;

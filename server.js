@@ -451,6 +451,10 @@ app.post('/api/orders', rateLimitOrders, async (req, res) => {
     );
     const maxNum = parseInt(maxDailyResult.rows[0].max_num) || 0;
     const nextDailyNum = maxNum + 1;
+    if (order_type === 'delivery' && (!latitude || !longitude)) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'Delivery orders require a map location' });
+    }
     const orderResult = await client.query(
       'INSERT INTO orders (customer_name, phone, table_number, order_type, address_text, latitude, longitude, status, total_amount, notes, daily_order_number) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING *',
       [customer_name || null, phone || null, table_number || null, order_type || 'dine_in', address_text || null, latitude || null, longitude || null, 'pending', total, notes || '', nextDailyNum]

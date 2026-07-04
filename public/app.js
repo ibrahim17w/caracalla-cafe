@@ -415,6 +415,14 @@ function selectOrderType(type, el) {
   } else {
     document.getElementById('dineInFields').classList.add('hidden');
     document.getElementById('deliveryFields').classList.remove('hidden');
+    // Reset location requirement when switching to delivery
+    customerLocation = null;
+    if (deliveryMarker && deliveryMap) {
+      deliveryMap.removeLayer(deliveryMarker);
+      deliveryMarker = null;
+    }
+    const overlay = document.getElementById('mapRequiredOverlay');
+    if (overlay) overlay.style.display = 'flex';
     setTimeout(initDeliveryMap, 100);
   }
 }
@@ -431,10 +439,21 @@ function initDeliveryMap() {
     attribution: '© OpenStreetMap'
   }).addTo(deliveryMap);
 
-  // Show cafe location marker
+  // Show cafe location marker with logo
   if (cafeLocation) {
-    L.marker([cafeLocation.lat, cafeLocation.lng]).addTo(deliveryMap)
-      .bindPopup('موقع المقهى').openPopup();
+    const logoUrl = settings.cafe_logo || '';
+    const cafeIconHtml = logoUrl
+      ? `<div style="width:44px;height:44px;border-radius:50%;overflow:hidden;border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.3);background:white;"><img src="${logoUrl}" style="width:100%;height:100%;object-fit:cover;"></div>`
+      : `<div style="width:44px;height:44px;border-radius:50%;background:var(--primary);display:flex;align-items:center;justify-content:center;color:white;font-size:20px;border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.3);">☕</div>`;
+    const cafeIcon = L.divIcon({
+      className: 'cafe-logo-marker',
+      html: cafeIconHtml,
+      iconSize: [44, 44],
+      iconAnchor: [22, 22],
+      popupAnchor: [0, -22]
+    });
+    L.marker([cafeLocation.lat, cafeLocation.lng], { icon: cafeIcon }).addTo(deliveryMap)
+      .bindPopup(settings.cafe_name || 'موقع المقهى').openPopup();
   }
 
   deliveryMap.on('click', function(e) {
@@ -442,6 +461,8 @@ function initDeliveryMap() {
     deliveryMarker = L.marker(e.latlng).addTo(deliveryMap);
     customerLocation = { lat: e.latlng.lat, lng: e.latlng.lng };
     showDeliveryDistance();
+    const overlay = document.getElementById('mapRequiredOverlay');
+    if (overlay) overlay.style.display = 'none';
   });
 }
 
@@ -460,6 +481,8 @@ function getCurrentLocation() {
         deliveryMarker = L.marker([lat, lng]).addTo(deliveryMap);
         customerLocation = { lat, lng };
         showDeliveryDistance();
+        const overlay = document.getElementById('mapRequiredOverlay');
+        if (overlay) overlay.style.display = 'none';
       }
     },
     () => showToast('تعذر الحصول على الموقع، يرجى النقر على الخريطة يدوياً 📍', 'error')
@@ -565,12 +588,22 @@ async function submitOrder() {
       document.getElementById('phoneNumber').focus();
       return;
     }
+    if (!customerLocation) {
+      showToast('يرجى تحديد موقعك على الخريطة 📍', 'warning');
+      const overlay = document.getElementById('mapRequiredOverlay');
+      if (overlay) {
+        overlay.style.display = 'flex';
+        overlay.style.animation = 'none';
+        overlay.offsetHeight; // trigger reflow
+        overlay.style.animation = 'pulseOverlay 1.5s ease 3';
+      }
+      document.getElementById('deliveryMap').scrollIntoView({ behavior: 'smooth', block: 'center' });
+      return;
+    }
     payload.phone = phone;
     payload.address_text = document.getElementById('addressText').value || null;
-    if (customerLocation) {
-      payload.latitude = customerLocation.lat;
-      payload.longitude = customerLocation.lng;
-    }
+    payload.latitude = customerLocation.lat;
+    payload.longitude = customerLocation.lng;
   }
 
   try {
@@ -682,7 +715,18 @@ function showCafeLocation() {
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '© OpenStreetMap'
     }).addTo(cafeMap);
-    L.marker([cafeLocation.lat, cafeLocation.lng]).addTo(cafeMap)
+    const logoUrl = settings.cafe_logo || '';
+    const cafeIconHtml = logoUrl
+      ? `<div style="width:50px;height:50px;border-radius:50%;overflow:hidden;border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.3);background:white;"><img src="${logoUrl}" style="width:100%;height:100%;object-fit:cover;"></div>`
+      : `<div style="width:50px;height:50px;border-radius:50%;background:var(--primary);display:flex;align-items:center;justify-content:center;color:white;font-size:22px;border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.3);">☕</div>`;
+    const cafeIcon = L.divIcon({
+      className: 'cafe-logo-marker',
+      html: cafeIconHtml,
+      iconSize: [50, 50],
+      iconAnchor: [25, 25],
+      popupAnchor: [0, -25]
+    });
+    L.marker([cafeLocation.lat, cafeLocation.lng], { icon: cafeIcon }).addTo(cafeMap)
       .bindPopup(settings.cafe_name || 'Caracalla Cafe').openPopup();
 
     // Show user location and distance if available

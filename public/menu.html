@@ -6,6 +6,12 @@
   <title>Caracalla Cafe - القائمة</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <link rel="stylesheet" href="style.css">
+  <style>
+    @keyframes pulseOverlay {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.7; transform: scale(1.02); }
+    }
+  </style>
 </head>
 <body>
 <nav>
@@ -101,8 +107,12 @@
           <input type="tel" id="phoneNumber" placeholder="09xxxxxxxx">
         </div>
         <div class="form-group">
-          <label>الموقع على الخريطة</label>
-          <div class="map-container" id="deliveryMap"></div>
+          <label>الموقع على الخريطة <span style="color:var(--danger);">*</span></label>
+          <div class="map-container" id="deliveryMap" style="position:relative;">
+            <div id="mapRequiredOverlay" style="position:absolute;top:0;left:0;right:0;bottom:0;background:rgba(255,235,238,0.3);border:2px dashed var(--danger);border-radius:var(--radius-sm);display:flex;align-items:center;justify-content:center;z-index:500;pointer-events:none;">
+              <span style="color:var(--danger);font-weight:700;background:var(--white);padding:0.5rem 1rem;border-radius:var(--radius-sm);box-shadow:var(--shadow);">📍 يرجى تحديد موقعك</span>
+            </div>
+          </div>
           <button class="btn btn-outline btn-sm mt-1" onclick="getCurrentLocation()">📍 تحديد موقعي الحالي</button>
         </div>
         <div class="form-group">

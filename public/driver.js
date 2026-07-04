@@ -225,11 +225,17 @@ function showRoute(orderId) {
       attribution: '© OpenStreetMap'
     }).addTo(routeMap);
 
-    // Cafe marker
+    // Cafe marker with logo
+    const logoUrl = allSettings.cafe_logo || '';
+    const cafeIconHtml = logoUrl
+      ? `<div style="width:44px;height:44px;border-radius:50%;overflow:hidden;border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.3);background:white;"><img src="${logoUrl}" style="width:100%;height:100%;object-fit:cover;"></div>`
+      : `<div style="width:44px;height:44px;border-radius:50%;background:var(--primary);display:flex;align-items:center;justify-content:center;color:white;font-size:20px;border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.3);">☕</div>`;
     const cafeIcon = L.divIcon({
-      className: 'cafe-marker',
-      html: '<div style="background:var(--primary);width:24px;height:24px;border-radius:50%;border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;color:white;font-size:12px;">☕</div>',
-      iconSize: [24, 24]
+      className: 'cafe-logo-marker',
+      html: cafeIconHtml,
+      iconSize: [44, 44],
+      iconAnchor: [22, 22],
+      popupAnchor: [0, -22]
     });
     L.marker([cafeLat, cafeLng], { icon: cafeIcon }).addTo(routeMap)
       .bindPopup(allSettings.cafe_name || 'المقهى').openPopup();
