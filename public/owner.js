@@ -219,6 +219,11 @@ function applySettings() {
     notifToggle.checked = allSettings.order_notifications !== 'false';
   }
   renderReceiptFields();
+    // Update favicon
+  if (allSettings.cafe_logo) {
+    const favicon = document.getElementById('favicon');
+    if (favicon) favicon.href = allSettings.cafe_logo;
+  }
 }
 function updateNavOpenStatus() {
   const navStatus = document.getElementById('navOpenStatus');
@@ -1138,11 +1143,47 @@ function showOrderMap(lat, lng, address) {
   document.getElementById('mapModal').classList.remove('hidden');
   setTimeout(() => {
     if (orderMap) { orderMap.remove(); orderMap = null; }
-    orderMap = L.map('orderMap').setView([lat, lng], 16);
+    
+    const cafeLat = allSettings.cafe_lat ? parseFloat(allSettings.cafe_lat) : null;
+    const cafeLng = allSettings.cafe_lng ? parseFloat(allSettings.cafe_lng) : null;
+    
+    // Center between cafe and customer if both exist, otherwise customer location
+    let centerLat = lat, centerLng = lng, zoom = 16;
+    if (cafeLat && cafeLng) {
+      centerLat = (cafeLat + lat) / 2;
+      centerLng = (cafeLng + lng) / 2;
+      zoom = 13;
+    }
+    
+    orderMap = L.map('orderMap').setView([centerLat, centerLng], zoom);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '© OpenStreetMap'
     }).addTo(orderMap);
-    orderMapMarker = L.marker([lat, lng]).addTo(orderMap)
+    
+    // Cafe marker with logo
+    if (cafeLat && cafeLng) {
+      const logoUrl = allSettings.cafe_logo || '';
+      const cafeIconHtml = logoUrl
+        ? `<div style="width:44px;height:44px;border-radius:50%;overflow:hidden;border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.3);background:white;"><img src="${logoUrl}" style="width:100%;height:100%;object-fit:cover;"></div>`
+        : `<div style="width:44px;height:44px;border-radius:50%;background:var(--primary);display:flex;align-items:center;justify-content:center;color:white;font-size:20px;border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.3);">☕</div>`;
+      const cafeIcon = L.divIcon({
+        className: 'cafe-logo-marker',
+        html: cafeIconHtml,
+        iconSize: [44, 44],
+        iconAnchor: [22, 22],
+        popupAnchor: [0, -22]
+      });
+      L.marker([cafeLat, cafeLng], { icon: cafeIcon }).addTo(orderMap)
+        .bindPopup(allSettings.cafe_name || 'المقهى').openPopup();
+    }
+    
+    // Customer/delivery marker
+    const destIcon = L.divIcon({
+      className: 'dest-marker',
+      html: '<div style="background:var(--success);width:24px;height:24px;border-radius:50%;border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;color:white;font-size:12px;">🏠</div>',
+      iconSize: [24, 24]
+    });
+    orderMapMarker = L.marker([lat, lng], { icon: destIcon }).addTo(orderMap)
       .bindPopup(address || 'موقع التوصيل').openPopup();
   }, 100);
 }

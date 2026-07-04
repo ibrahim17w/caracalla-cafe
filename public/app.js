@@ -27,6 +27,9 @@ async function loadMenu() {
     if (categories.length > 0) console.log('First cat image_path:', categories[0].image_path);
     items = await itemRes.json();
     settings = await settingsRes.json();
+    // Update favicon
+    const favicon = document.getElementById('favicon');
+    if (favicon && settings.cafe_logo) favicon.href = settings.cafe_logo;
         console.log('Settings loaded:', settings);
     console.log('cafe_logo:', settings.cafe_logo);
     console.log('cafe_menu_image:', settings.cafe_menu_image);

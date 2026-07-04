@@ -90,6 +90,9 @@ async function loadSettings() {
   try {
     const res = await fetch(`${API}/settings`);
     allSettings = await res.json();
+    // Update favicon
+    const favicon = document.getElementById('favicon');
+    if (favicon && allSettings.cafe_logo) favicon.href = allSettings.cafe_logo;
   } catch (e) { console.error('Settings error', e); }
 }
 
