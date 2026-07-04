@@ -603,9 +603,18 @@ app.put('/api/orders/:id', verifyToken, requireRole(['owner']), async (req, res)
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 app.post('/api/orders/:id/items', async (req, res) => {
-  const { items } = req.body;
+  const { items, token } = req.body;
   const orderId = parseInt(req.params.id);
   if (!items || !Array.isArray(items)) return res.status(400).json({ error: 'Items required' });
+  
+  // Verify customer token
+  if (!token) return res.status(401).json({ error: 'Token required' });
+  try {
+    const decoded = jwt.verify(token, JWT_SECRET);
+    if (decoded.oid !== orderId) return res.status(403).json({ error: 'Invalid token' });
+  } catch (e) {
+    return res.status(401).json({ error: 'Invalid or expired token' });
+  }
 
   const client = await pool.connect();
   try {

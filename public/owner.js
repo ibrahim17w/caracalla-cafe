@@ -15,21 +15,30 @@ let previousOrderCount = null;
 function playBeep() {
   try {
     const ctx = new (window.AudioContext || window.webkitAudioContext)();
-    const playTone = (freq, start, duration, vol) => {
+    const now = ctx.currentTime;
+    
+    // Windows-style notification: two pleasant sine wave chimes
+    const playChime = (freq, start, duration, vol) => {
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
       osc.connect(gain);
       gain.connect(ctx.destination);
-      osc.type = 'square';
-      osc.frequency.value = freq;
-      gain.gain.value = vol;
-      osc.start(ctx.currentTime + start);
-      osc.stop(ctx.currentTime + start + duration);
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(freq, start);
+      // Smooth envelope
+      gain.gain.setValueAtTime(0, start);
+      gain.gain.linearRampToValueAtTime(vol, start + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.001, start + duration);
+      osc.start(start);
+      osc.stop(start + duration);
     };
-    // Louder double beep pattern
-    playTone(1200, 0, 0.15, 0.6);
-    playTone(800, 0.18, 0.25, 0.6);
-    setTimeout(() => { ctx.close(); }, 500);
+    
+    // Pleasant notification chord: D5 + A5 (like Windows 10 notification)
+    playChime(587.33, now, 0.4, 0.8);      // D5
+    playChime(880.00, now + 0.08, 0.35, 0.7); // A5 (harmony)
+    playChime(1174.66, now + 0.16, 0.3, 0.5); // D6 (bright finish)
+    
+    setTimeout(() => { ctx.close(); }, 800);
   } catch (e) { console.error('Beep failed', e); }
 }
 
@@ -267,7 +276,7 @@ function populateCategorySelects() {
 }
 
 function formatPrice(price) {
-  return parseInt(price).toLocaleString('en-US') + ' ل.س';
+  return Math.round(price).toLocaleString('en-US') + ' ل.س';
 }
 
 function getStatusLabel(status) {
@@ -1188,7 +1197,7 @@ async function generateReceipt(orderId) {
   const receiptHtml = `
     <div id="receiptPrint" class="receipt">
       <div class="receipt-header" style="border-bottom:none;padding-bottom:0.3rem;margin-bottom:0.3rem;">
-        ${allSettings.cafe_logo ? `<img src="${allSettings.cafe_logo}" class="logo">` : ''}
+        ${allSettings.cafe_logo ? `<img src="${allSettings.cafe_logo}" style="width:60px;height:60px;border-radius:50%;object-fit:cover;margin-bottom:0.5rem;display:block;" crossorigin="anonymous">` : ''}
         <h3>${cafeName}</h3>
         ${cafePhone ? `<div style="font-size:0.85rem;color:var(--text-muted);margin-top:0.2rem;">${cafePhone}</div>` : ''}
         ${cafeAddress ? `<div style="font-size:0.8rem;color:var(--text-muted);margin-top:0.2rem;">${cafeAddress}</div>` : ''}

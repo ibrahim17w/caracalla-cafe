@@ -689,11 +689,27 @@ input[type="file"] {
   background: var(--white);
 }
 
-.order-type-option:hover { border-color: var(--primary-light); }
+.order-type-option:hover { 
+  border-color: var(--primary-light); 
+  background: var(--cream);
+}
 
+[data-theme="dark"] .order-type-option:hover {
+  background: var(--border);
+}
 .order-type-option.selected {
   border-color: var(--primary);
   background: #FFF8F0;
+  color: var(--text);
+}
+
+[data-theme="dark"] .order-type-option.selected {
+  background: var(--primary);
+  color: var(--white);
+}
+
+[data-theme="dark"] .order-type-option.selected .label {
+  color: var(--white);
 }
 
 .order-type-option .icon {
@@ -875,7 +891,7 @@ input[type="file"] {
 .text-sm { font-size: 0.85rem; }
 .font-bold { font-weight: 700; }
 
-/* ===== PRINT RECEIPT ===== */
+
 /* ===== PRINT RECEIPT ===== */
 @media print {
   body * { visibility: hidden; }
@@ -895,7 +911,6 @@ input[type="file"] {
   #customerReceiptPrint .receipt-footer {
     border-top: none !important;
   }
-}
   #receiptPrint hr, #customerReceiptPrint hr {
     display: block !important;
     visibility: visible !important;
@@ -905,6 +920,7 @@ input[type="file"] {
     width: 100% !important;
     height: 0 !important;
   }
+}
 /* ===== TOAST NOTIFICATIONS ===== */
 .toast-container {
   position: fixed;

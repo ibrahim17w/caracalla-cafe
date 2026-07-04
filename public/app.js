@@ -68,29 +68,42 @@ async function loadMenu() {
     
     // Open/close status
     const openStatusEl = document.getElementById('openStatus');
-    if (openStatusEl && settings.cafe_open_hours) {
-      try {
-        const hours = typeof settings.cafe_open_hours === 'string' ? JSON.parse(settings.cafe_open_hours) : settings.cafe_open_hours;
-        const now = new Date();
-        const syriaTime = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Damascus' }));
-        const currentHour = syriaTime.getHours();
-        const currentMinute = syriaTime.getMinutes();
-        const currentTime = currentHour * 60 + currentMinute;
-        
-        const [openH, openM] = (hours.open || '08:00').split(':').map(Number);
-        const [closeH, closeM] = (hours.close || '23:00').split(':').map(Number);
-        const openTime = openH * 60 + openM;
-        const closeTime = closeH * 60 + closeM;
-        
-        const isOpen = currentTime >= openTime && currentTime < closeTime;
+    if (openStatusEl) {
+      let isOpen = false;
+      let hasHours = false;
+      
+      // Check force open first
+      if (settings.cafe_force_open === 'true') {
+        isOpen = true;
+        hasHours = true;
+      } else if (settings.cafe_open_hours) {
+        try {
+          const hours = typeof settings.cafe_open_hours === 'string' ? JSON.parse(settings.cafe_open_hours) : settings.cafe_open_hours;
+          const now = new Date();
+          const syriaTime = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Damascus' }));
+          const currentHour = syriaTime.getHours();
+          const currentMinute = syriaTime.getMinutes();
+          const currentTime = currentHour * 60 + currentMinute;
+          
+          const [openH, openM] = (hours.open || '08:00').split(':').map(Number);
+          const [closeH, closeM] = (hours.close || '23:00').split(':').map(Number);
+          const openTime = openH * 60 + openM;
+          const closeTime = closeH * 60 + closeM;
+          
+          isOpen = currentTime >= openTime && currentTime < closeTime;
+          hasHours = true;
+        } catch (e) {
+          console.error('Open hours parse error:', e);
+        }
+      }
+      
+      if (hasHours) {
         openStatusEl.style.display = 'inline-flex';
         openStatusEl.className = 'open-status ' + (isOpen ? 'open' : 'closed');
         const openStatusIcon = document.getElementById('openStatusIcon');
         if (openStatusIcon) openStatusIcon.textContent = isOpen ? '🟢' : '🔴';
         const openStatusText = document.getElementById('openStatusText');
         if (openStatusText) openStatusText.textContent = isOpen ? 'مفتوح الآن' : 'مغلق الآن';
-      } catch (e) {
-        console.error('Open hours parse error:', e);
       }
     }
     
@@ -214,7 +227,7 @@ function renderMenu(catId) {
 }
 
 function formatPrice(price) {
-  return parseInt(price).toLocaleString('en-US') + ' ل.س';
+  return Math.round(price).toLocaleString('en-US') + ' ل.س';
 }
 
 function openItemModal(itemId) {
@@ -305,7 +318,7 @@ function updateCartUI() {
   }, 0);
 
   document.getElementById('cartCount').textContent = count;
-  document.getElementById('cartTotal').textContent = total.toLocaleString('ar-SY');
+  document.getElementById('cartTotal').textContent = Math.round(total).toLocaleString('en-US');
 }
 
 function openCheckout() {
@@ -340,8 +353,26 @@ function openCheckout() {
     `;
   });
 
-  document.getElementById('checkoutTotal').textContent = 'الإجمالي: ' + total.toLocaleString('ar-SY') + ' ل.س';
-  selectOrderType('dine_in', document.querySelector('[data-type="dine_in"]'));
+  document.getElementById('checkoutTotal').textContent = 'الإجمالي: ' + Math.round(total).toLocaleString('en-US') + ' ل.س';
+  
+  // If adding to existing order, preserve original order type
+  if (window.addToOrderId && window.addToOrderOriginalType) {
+    const typeBtn = document.querySelector(`[data-type="${window.addToOrderOriginalType}"]`);
+    if (typeBtn) selectOrderType(window.addToOrderOriginalType, typeBtn);
+    // Disable order type switching when adding to existing order
+    document.querySelectorAll('.order-type-option').forEach(el => {
+      el.style.pointerEvents = 'none';
+      el.style.opacity = '0.6';
+    });
+  } else {
+    selectOrderType('dine_in', document.querySelector('[data-type="dine_in"]'));
+    // Re-enable order type switching for new orders
+    document.querySelectorAll('.order-type-option').forEach(el => {
+      el.style.pointerEvents = '';
+      el.style.opacity = '';
+    });
+  }
+  
   if (window.preselectedTable) {
     document.getElementById('tableNumber').value = window.preselectedTable;
   }
@@ -363,12 +394,20 @@ function removeCartItem(idx) {
 function closeCheckout() {
   document.getElementById('checkoutModal').classList.add('hidden');
   if (deliveryMap) { deliveryMap.remove(); deliveryMap = null; }
+  // Clean up add-to-order state if cancelled
+  if (!window.addToOrderId) {
+    window.addToOrderOriginalType = null;
+    document.querySelectorAll('.order-type-option').forEach(el => {
+      el.style.pointerEvents = '';
+      el.style.opacity = '';
+    });
+  }
 }
 
 function selectOrderType(type, el) {
   selectedOrderType = type;
   document.querySelectorAll('.order-type-option').forEach(o => o.classList.remove('selected'));
-  el.classList.add('selected');
+  if (el) el.classList.add('selected');
 
   if (type === 'dine_in') {
     document.getElementById('dineInFields').classList.remove('hidden');
@@ -462,17 +501,29 @@ async function submitOrder() {
       quantity: c.quantity,
       additions: c.additions
     }));
+    const tokens = JSON.parse(localStorage.getItem('cafeOrderTokens') || '{}');
+    const token = tokens[window.addToOrderId];
+    if (!token) {
+      showToast('لا يمكن التعديل من هذا الجهاز ❌', 'error');
+      return;
+    }
     try {
       const res = await fetch(`${API}/orders/${window.addToOrderId}/items`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ items: orderItems })
+        body: JSON.stringify({ items: orderItems, token: token })
       });
       if (!res.ok) throw new Error('Failed');
       showToast('تم إضافة الأصناف للطلب بنجاح! ✅', 'success');
       clearCart();
       closeCheckout();
       window.addToOrderId = null;
+      window.addToOrderOriginalType = null;
+      // Re-enable order type switching
+      document.querySelectorAll('.order-type-option').forEach(el => {
+        el.style.pointerEvents = '';
+        el.style.opacity = '';
+      });
       const checkoutBtn = document.querySelector('#cartPanel button');
       if (checkoutBtn) checkoutBtn.textContent = 'اطلب الآن';
       return;
@@ -495,7 +546,7 @@ async function submitOrder() {
   const payload = {
     customer_name: name,
     items: orderItems,
-    notes: document.getElementById('modalNotes')?.value || '',
+    notes: document.getElementById('orderNotes')?.value || '',
     order_type: selectedOrderType
   };
 
@@ -551,6 +602,7 @@ async function submitOrder() {
 
     clearCart();
     closeCheckout();
+    document.getElementById('orderNotes').value = '';
   } catch (e) {
     showToast('تعذر إرسال الطلب، يرجى المحاولة لاحقاً ❌', 'error');
   }
@@ -575,7 +627,7 @@ function showCustomerReceipt() {
       });
     }
     total += subtotal;
-    itemsHtml += `<div style="display:flex;justify-content:space-between;margin-bottom:0.2rem;"><span>${it.name} × ${it.quantity}</span><span>${subtotal.toLocaleString('ar-SY')} ل.س</span></div>${addsHtml}`;
+    itemsHtml += `<div style="display:flex;justify-content:space-between;margin-bottom:0.2rem;"><span>${it.name} × ${it.quantity}</span><span>${Math.round(subtotal).toLocaleString('en-US')} ل.س</span></div>${addsHtml}`;
   });
 
   const isDelivery = order.order_type === 'delivery';
@@ -599,7 +651,7 @@ function showCustomerReceipt() {
       ${dashedLine}
       ${itemsHtml}
       ${dashedLine}
-      <div style="display:flex;justify-content:space-between;font-weight:800;color:var(--primary);font-size:1.1rem;"><span>المجموع:</span><span>${total.toLocaleString('ar-SY')} ل.س</span></div>
+      <div style="display:flex;justify-content:space-between;font-weight:800;color:var(--primary);font-size:1.1rem;"><span>المجموع:</span><span>${Math.round(total).toLocaleString('en-US')} ل.س</span></div>
       <div style="text-align:center;margin-top:0.8rem;color:var(--text-muted);font-size:0.8rem;">شكراً لزيارتكم!</div>
     </div>
   `;
@@ -790,7 +842,7 @@ async function trackOrder() {
     `;
 
     html += `<div style="margin-top:1rem;"><h4 style="margin-bottom:0.5rem;color:var(--primary-dark);">الأصناف:</h4>`;
-    order.items.forEach(it => {
+    (order.items || []).forEach(it => {
       html += `
         <div style="padding:0.5rem 0;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;">
           <span>${it.item_name} × ${it.quantity}</span>
@@ -894,6 +946,10 @@ document.addEventListener('click', (e) => {
 });
 function startAddToOrder(orderId) {
   window.addToOrderId = orderId;
+  // Fetch original order to preserve order type
+  fetch(`${API}/orders/${orderId}`).then(r => r.json()).then(order => {
+    window.addToOrderOriginalType = order.order_type;
+  }).catch(() => {});
   closeOrderStatus();
   showCategories();
   showToast('اختر الأصناف لإضافتها للطلب #' + orderId, 'info');

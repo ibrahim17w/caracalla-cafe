@@ -125,9 +125,8 @@ function filterOrders(status, el) {
 }
 
 function formatPrice(price) {
-  return parseInt(price).toLocaleString('ar-SY') + ' ل.س';
+  return Math.round(price).toLocaleString('ar-SY') + ' ل.س';
 }
-
 function getStatusLabel(status) {
   const map = { pending: 'قيد الانتظار', preparing: 'قيد التحضير', ready: 'جاهز', delivering: 'في الطريق', completed: 'مكتمل', cancelled: 'ملغى' };
   return map[status] || status;

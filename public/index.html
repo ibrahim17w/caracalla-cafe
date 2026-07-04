@@ -135,6 +135,25 @@
       background: #FFEBEE;
       color: #B85450;
     }
+    .splash-hours {
+      margin-top: 0.8rem;
+      padding: 0.6rem 1.2rem;
+      background: var(--white);
+      border-radius: 12px;
+      font-size: 0.95rem;
+      color: var(--text-muted);
+      box-shadow: var(--shadow);
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .splash-hours::before {
+      content: '🕐';
+    }
+    [data-theme="dark"] .splash-hours {
+      background: var(--white);
+      color: var(--text-muted);
+    }
   </style>
 </head>
 <body>
@@ -153,7 +172,7 @@
       <span class="loading-dots">جاري التحميل...</span>
     </div>
     <div class="open-status-splash" id="splashOpenStatus" style="display:none;"></div>
-    <div class="open-status-splash" id="splashOpenStatus" style="display:none;"></div>
+    <div class="splash-hours" id="splashHours" style="display:none;"></div>
   </div>
 
   <!-- Location Modal -->
@@ -214,7 +233,7 @@
             isOpen = true;
           } else if (settings.cafe_open_hours) {
             try {
-              const hours = JSON.parse(settings.cafe_open_hours);
+              const hours = typeof settings.cafe_open_hours === 'string' ? JSON.parse(settings.cafe_open_hours) : settings.cafe_open_hours;
               const [openH, openM] = (hours.open || '08:00').split(':').map(Number);
               const [closeH, closeM] = (hours.close || '23:00').split(':').map(Number);
               const openTime = openH * 60 + openM;
@@ -226,6 +245,29 @@
           openStatusEl.style.display = 'inline-flex';
           openStatusEl.className = 'open-status-splash ' + (isOpen ? 'open' : 'closed');
           openStatusEl.innerHTML = (isOpen ? '🟢 ' : '🔴 ') + (isOpen ? 'مفتوح الآن' : 'مغلق الآن');
+        }
+        
+        // Show open hours
+        const hoursEl = document.getElementById('splashHours');
+        if (hoursEl && settings.cafe_open_hours) {
+          try {
+            const hours = JSON.parse(settings.cafe_open_hours);
+            const openStr = hours.open || '08:00';
+            const closeStr = hours.close || '23:00';
+            // Convert 24h to 12h format for nicer display
+            const to12h = (t) => {
+              const [h, m] = t.split(':');
+              const hour = parseInt(h);
+              if (hour === 0) return `12:${m} ص`;
+              if (hour === 12) return `12:${m} م`;
+              if (hour > 12) return `${hour - 12}:${m} م`;
+              return `${hour}:${m} ص`;
+            };
+            hoursEl.style.display = 'inline-flex';
+            hoursEl.textContent = `ساعات العمل: ${to12h(openStr)} - ${to12h(closeStr)}`;
+          } catch (e) {
+            hoursEl.style.display = 'none';
+          }
         }
         let contactHtml = '';
         if (settings.cafe_phone) contactHtml += `<div class="contact-item">📞 <a href="tel:${settings.cafe_phone}">${settings.cafe_phone}</a></div>`;
