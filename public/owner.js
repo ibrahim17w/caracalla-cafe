@@ -1305,7 +1305,7 @@ async function generateReceipt(orderId) {
   const receiptHtml = `
     <div id="receiptPrint" class="receipt">
       <div class="receipt-header" style="border-bottom:none;padding-bottom:0.3rem;margin-bottom:0.3rem;text-align:center;">
-        ${allSettings.cafe_logo ? `<div style="text-align:center;margin-bottom:0.5rem;"><img src="${allSettings.cafe_logo}" alt="logo" style="max-width:80px;max-height:60px;object-fit:contain;display:block;margin:0 auto;background:#fff;"></div>` : ''}
+       ${allSettings.cafe_logo ? `<div style="text-align:center;margin-bottom:0.5rem;"><img src="${allSettings.cafe_logo}" alt="logo" style="width:60px;height:60px;border-radius:50%;object-fit:cover;display:block;margin:0 auto;background:#fff;border:2px solid #fff;"></div>` : ''}
         <h3>${cafeName}</h3>
         ${cafePhone ? `<div style="font-size:0.85rem;color:var(--text-muted);margin-top:0.2rem;">${cafePhone}</div>` : ''}
         ${cafeAddress ? `<div style="font-size:0.8rem;color:var(--text-muted);margin-top:0.2rem;">${cafeAddress}</div>` : ''}
@@ -1367,7 +1367,7 @@ function printReceipt() {
           padding-bottom: 4px; 
         }
         .receipt-header h3 { margin: 0 0 4px; font-size: 15px; }
-        .receipt-header img { max-width: 80px; max-height: 60px; object-fit: contain; display: block; margin: 0 auto 4px; background: #fff; }
+       .receipt-header img { width: 60px; height: 60px; border-radius: 50%; object-fit: cover; display: block; margin: 0 auto 4px; background: #fff; border: 2px solid #fff; }
         .receipt-header div { font-size: 11px; color: #333; margin-bottom: 2px; }
         .receipt-line { 
           display: flex; 
