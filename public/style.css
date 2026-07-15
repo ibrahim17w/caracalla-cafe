@@ -925,6 +925,10 @@ input[type="file"] {
   #customerReceiptPrint .receipt-footer {
     border-top: none !important;
   }
+  #receiptPrint .logo,
+  #customerReceiptPrint .logo {
+    display: none !important;
+  }
   #receiptPrint hr, #customerReceiptPrint hr {
     display: block !important;
     visibility: visible !important;

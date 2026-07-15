@@ -1305,7 +1305,6 @@ async function generateReceipt(orderId) {
   const receiptHtml = `
     <div id="receiptPrint" class="receipt">
       <div class="receipt-header" style="border-bottom:none;padding-bottom:0.3rem;margin-bottom:0.3rem;text-align:center;">
-       // WITH THIS BLOCK
         ${allSettings.cafe_logo ? `<div style="text-align:center;margin-bottom:0.5rem;"><img src="${allSettings.cafe_logo}" class="logo"></div>` : ''}
         <h3>${cafeName}</h3>
         ${cafePhone ? `<div style="font-size:0.85rem;color:var(--text-muted);margin-top:0.2rem;">${cafePhone}</div>` : ''}
@@ -1368,7 +1367,7 @@ function printReceipt() {
           padding-bottom: 4px; 
         }
         .receipt-header h3 { margin: 0 0 4px; font-size: 15px; }
-        .receipt-header img { max-width: 50px; height: auto; margin-bottom: 4px; }
+        .receipt-header .logo { display: none; }
         .receipt-header div { font-size: 11px; color: #333; margin-bottom: 2px; }
         .receipt-line { 
           display: flex; 
