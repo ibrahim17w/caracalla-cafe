@@ -484,6 +484,8 @@ function filterItems() {
   renderItems(query);
 }
 
+let draggedItem = null;
+
 function renderItems(filter = '') {
   const grid = document.getElementById('ownerItemsGrid');
   grid.innerHTML = '';
@@ -497,18 +499,29 @@ function renderItems(filter = '') {
     grid.innerHTML = '<div class="text-center" style="grid-column:1/-1;color:var(--text-muted);padding:2rem;">لا توجد أصناف</div>';
     return;
   }
-  items.forEach(item => {
+  items.forEach((item, idx) => {
     const cat = allCategories.find(c => c.id === item.category_id);
     const div = document.createElement('div');
     div.className = 'menu-item';
     div.style.opacity = item.is_available ? '1' : '0.5';
+    if (!filter) {
+      div.draggable = true;
+      div.dataset.id = item.id;
+      div.dataset.index = idx;
+      div.addEventListener('dragstart', itemDragStart);
+      div.addEventListener('dragover', itemDragOver);
+      div.addEventListener('drop', itemDrop);
+      div.addEventListener('dragend', itemDragEnd);
+    }
     const imgHtml = item.image_path
       ? `<div class="item-img"><img src="${item.image_path}" alt="${item.name}"></div>`
       : `<div class="item-img">☕</div>`;
     const stockHtml = item.stock !== null
       ? `<div style="color:${item.stock <= 5 ? 'var(--danger)' : 'var(--text-muted)'};font-size:0.8rem;font-weight:${item.stock <= 5 ? '700' : '400'};">المخزون: ${item.stock} ${item.stock <= 5 ? '⚠️ منخفض' : ''}</div>`
       : '';
+    const dragHandle = !filter ? `<div style="display:flex;justify-content:space-between;align-items:center;padding:0.4rem 0.8rem;background:var(--cream);border-bottom:1px solid var(--border);cursor:grab;border-radius:var(--radius) var(--radius) 0 0;"><span style="color:var(--text-muted);font-weight:700;font-size:1rem;">⋮⋮</span><span style="font-size:0.8rem;color:var(--text-muted);">اسحب لإعادة الترتيب</span></div>` : '';
     div.innerHTML = `
+      ${dragHandle}
       ${imgHtml}
       <div class="item-body">
         <div class="item-name">${item.name} ${!item.is_available ? '<span style="color:var(--danger);font-size:0.75rem;">(غير متاح)</span>' : ''}</div>
@@ -936,6 +949,43 @@ function dragEnd(e) {
   draggedCategory = null;
 }
 
+function itemDragStart(e) {
+  draggedItem = parseInt(e.currentTarget.dataset.id);
+  e.currentTarget.classList.add('dragging');
+}
+
+function itemDragOver(e) {
+  e.preventDefault();
+}
+
+async function itemDrop(e) {
+  e.preventDefault();
+  const targetCard = e.target.closest('.menu-item');
+  if (!targetCard) return;
+  const targetId = parseInt(targetCard.dataset.id);
+  if (draggedItem === targetId) return;
+
+  const draggedIdx = allItems.findIndex(i => i.id === draggedItem);
+  const targetIdx = allItems.findIndex(i => i.id === targetId);
+
+  const [moved] = allItems.splice(draggedIdx, 1);
+  allItems.splice(targetIdx, 0, moved);
+
+  allItems.forEach((item, i) => {
+    fetch(`${API}/items/${item.id}/sort`, {
+      method: 'PUT',
+      headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sort_order: i })
+    }).catch(() => {});
+  });
+
+  renderItems(document.getElementById('itemSearch').value.trim().toLowerCase());
+}
+
+function itemDragEnd(e) {
+  e.currentTarget.classList.remove('dragging');
+  draggedItem = null;
+}
 // ===================== ORDERS =====================
 function renderOrders() {
   const container = document.getElementById('ownerOrders');
@@ -1255,7 +1305,8 @@ async function generateReceipt(orderId) {
   const receiptHtml = `
     <div id="receiptPrint" class="receipt">
       <div class="receipt-header" style="border-bottom:none;padding-bottom:0.3rem;margin-bottom:0.3rem;text-align:center;">
-        ${allSettings.cafe_logo ? `<div style="text-align:center;margin-bottom:0.5rem;"><img src="${allSettings.cafe_logo}" style="width:60px;height:60px;border-radius:50%;object-fit:cover;margin:0 auto;display:block;" crossorigin="anonymous"></div>` : ''}
+       // WITH THIS BLOCK
+        ${allSettings.cafe_logo ? `<div style="text-align:center;margin-bottom:0.5rem;"><img src="${allSettings.cafe_logo}" class="logo"></div>` : ''}
         <h3>${cafeName}</h3>
         ${cafePhone ? `<div style="font-size:0.85rem;color:var(--text-muted);margin-top:0.2rem;">${cafePhone}</div>` : ''}
         ${cafeAddress ? `<div style="font-size:0.8rem;color:var(--text-muted);margin-top:0.2rem;">${cafeAddress}</div>` : ''}
@@ -1486,6 +1537,8 @@ async function saveSettings() {
 
   if (allSuccess) {
     showToast('تم حفظ الإعدادات بنجاح! ✅', 'success');
+    document.getElementById('setLogo').value = '';
+    document.getElementById('setMenuImage').value = '';
   } else {
     showToast('حدث خطأ أثناء الحفظ، يرجى تسجيل الدخول مجدداً ❌', 'error');
   }

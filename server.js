@@ -39,8 +39,9 @@ const upload = multer({
   }
 });
 
+
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '10mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
 // ===================== RATE LIMITING =====================
@@ -227,7 +228,7 @@ app.delete('/api/categories/:id', verifyToken, requireRole(['owner']), async (re
 // ===================== ITEMS =====================
 app.get('/api/items', async (req, res) => {
   try {
-    const itemsResult = await pool.query('SELECT * FROM items ORDER BY category_id, id');
+      const itemsResult = await pool.query('SELECT * FROM items ORDER BY sort_order, id');
     const items = itemsResult.rows;
     for (let item of items) {
       const addResult = await pool.query('SELECT * FROM item_additions WHERE item_id = $1 ORDER BY id', [item.id]);
@@ -260,9 +261,11 @@ app.post('/api/items', verifyToken, requireRole(['owner']), upload.single('image
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
+   const maxSortResult = await client.query('SELECT COALESCE(MAX(sort_order), 0) as max_so FROM items');
+    const nextSort = parseInt(maxSortResult.rows[0].max_so) + 1;
     const itemResult = await client.query(
-      'INSERT INTO items (category_id, name, description, price, stock, image_path) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
-      [category_id || null, name, description || '', price, stock || null, imagePath]
+      'INSERT INTO items (category_id, name, description, price, stock, image_path, sort_order) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *',
+      [category_id || null, name, description || '', price, stock || null, imagePath, nextSort]
     );
     const item = itemResult.rows[0];
     if (additions) {
@@ -333,6 +336,13 @@ app.delete('/api/items/:id', verifyToken, requireRole(['owner']), async (req, re
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+app.put('/api/items/:id/sort', verifyToken, requireRole(['owner']), async (req, res) => {
+  const { sort_order } = req.body;
+  try {
+    const result = await pool.query('UPDATE items SET sort_order = $1 WHERE id = $2 RETURNING *', [sort_order, req.params.id]);
+    res.json(result.rows[0]);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
 // ===================== ORDERS =====================
 app.get('/api/orders', verifyToken, requireRole(['owner', 'driver']), async (req, res) => {
   const { status } = req.query;

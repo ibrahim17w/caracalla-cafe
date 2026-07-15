@@ -138,7 +138,7 @@ async function loadMenu() {
     document.getElementById('categoriesGrid').innerHTML = `
       <div class="text-center" style="padding:3rem;color:var(--text-muted);">
         <p>⚠️ لم نتمكن من تحميل القائمة</p>
-        <p class="text-sm">تأكد من تشغيل الخادم على المنفذ 3015</p>
+
       </div>
     `;
   }
@@ -625,12 +625,16 @@ async function submitOrder() {
     window.lastOrder = order;
     window.lastOrderItems = cart.map(c => ({...c}));
 
-    // Save secure token so only this browser can cancel/confirm this order later
+      // Save secure token so only this browser can cancel/confirm this order later
     if (order.customer_token) {
       const tokens = JSON.parse(localStorage.getItem('cafeOrderTokens') || '{}');
       tokens[order.id] = order.customer_token;
       tokens[order.daily_order_number || order.id] = order.customer_token;
       localStorage.setItem('cafeOrderTokens', JSON.stringify(tokens));
+      const myOrders = JSON.parse(localStorage.getItem('cafeMyOrders') || '[]');
+      myOrders.unshift({ id: order.id, daily: order.daily_order_number || order.id, token: order.customer_token, date: new Date().toISOString() });
+      if (myOrders.length > 20) myOrders.pop();
+      localStorage.setItem('cafeMyOrders', JSON.stringify(myOrders));
     }
 
     document.getElementById('successOrderId').textContent = '#' + (order.daily_order_number || order.id);
@@ -776,15 +780,27 @@ function closeCafeLocation() {
 function showOrderStatus() {
   document.getElementById('orderStatusModal').classList.remove('hidden');
   document.getElementById('trackOrderId').value = '';
-  document.getElementById('trackResult').innerHTML = '';
+  const resultDiv = document.getElementById('trackResult');
+  resultDiv.innerHTML = '';
+  
+  const myOrders = JSON.parse(localStorage.getItem('cafeMyOrders') || '[]');
+  if (myOrders.length > 0) {
+    let html = '<div style="margin-bottom:0.8rem;"><strong style="color:var(--primary);">طلباتي من هذا الجهاز:</strong></div>';
+    html += '<div style="display:flex;flex-wrap:wrap;gap:0.5rem;margin-bottom:1rem;">';
+    myOrders.forEach(o => {
+      html += `<button class="btn btn-outline btn-sm" onclick="trackOrder('${o.daily}')">طلب #${o.daily}</button>`;
+    });
+    html += '</div><div style="border-top:1px solid var(--border);padding-top:0.8rem;margin-bottom:0.5rem;color:var(--text-muted);font-size:0.9rem;">أو أدخل رقم طلب يدوياً:</div>';
+    resultDiv.innerHTML = html;
+  }
 }
 
 function closeOrderStatus() {
   document.getElementById('orderStatusModal').classList.add('hidden');
 }
 
-async function trackOrder() {
-  const orderId = document.getElementById('trackOrderId').value;
+async function trackOrder(prefillId) {
+  const orderId = prefillId || document.getElementById('trackOrderId').value;
   if (!orderId) return;
 
   try {
@@ -935,8 +951,10 @@ async function confirmReceived(orderId) {
   const confirmed = await showConfirm('هل أنت متأكد من استلام الطلب؟ بعد التأكيد لن يتمكن أحد من رؤية موقعك.', 'تأكيد الاستلام', '✅');
   if (!confirmed) return;
 
+  const myOrders = JSON.parse(localStorage.getItem('cafeMyOrders') || '[]');
+  const orderEntry = myOrders.find(o => String(o.id) === String(orderId) || String(o.daily) === String(orderId));
   const tokens = JSON.parse(localStorage.getItem('cafeOrderTokens') || '{}');
-  const token = tokens[orderId] || (window.lastOrder && window.lastOrder.id == orderId ? window.lastOrder.customer_token : null);
+  const token = (orderEntry && orderEntry.token) || tokens[orderId] || (window.lastOrder && window.lastOrder.id == orderId ? window.lastOrder.customer_token : null);
   if (!token) { showToast('لا يمكن تأكيد الاستلام من هذا الجهاز ❌', 'error'); return; }
 
   try {
@@ -960,8 +978,10 @@ async function cancelCustomerOrder(orderId) {
   const confirmed = await showConfirm('هل تريد إلغاء هذا الطلب؟', 'تأكيد الإلغاء', '❌');
   if (!confirmed) return;
 
+  const myOrders = JSON.parse(localStorage.getItem('cafeMyOrders') || '[]');
+  const orderEntry = myOrders.find(o => String(o.id) === String(orderId) || String(o.daily) === String(orderId));
   const tokens = JSON.parse(localStorage.getItem('cafeOrderTokens') || '{}');
-  const token = tokens[orderId] || (window.lastOrder && window.lastOrder.id == orderId ? window.lastOrder.customer_token : null);
+  const token = (orderEntry && orderEntry.token) || tokens[orderId] || (window.lastOrder && window.lastOrder.id == orderId ? window.lastOrder.customer_token : null);
   if (!token) { showToast('لا يمكن الإلغاء من هذا الجهاز ❌', 'error'); return; }
 
   try {
