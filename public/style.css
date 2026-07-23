@@ -1073,6 +1073,11 @@ input[type="file"] {
   to { transform: scale(1); opacity: 1; }
 }
 
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
 /* ===== ORDER NOTIFICATION POPUP ===== */
 .order-notify-overlay {
   position: fixed;

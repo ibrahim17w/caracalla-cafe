@@ -1716,12 +1716,43 @@ function showAddTableItem(tabId, tableNum) {
   document.getElementById('tableItemTabId').value = tabId;
   document.getElementById('tableItemTableNum').textContent = tableNum;
   document.getElementById('tableItemQty').value = 1;
-  const select = document.getElementById('tableItemSelect');
-  select.innerHTML = allItems.map(i => `<option value="${i.id}">${i.name} — ${formatPrice(i.price)}</option>`).join('');
-  document.getElementById('tableItemAdditions').innerHTML = '';
-  select.onchange = () => renderTableItemAdditions(select.value);
-  renderTableItemAdditions(select.value);
+  document.getElementById('tableItemSearch').value = '';
+  document.getElementById('tableItemSearchResults').style.display = 'none';
+  document.getElementById('tableItemSelectedId').value = '';
+  document.getElementById('tableItemAdditions').innerHTML = '<p style="color:var(--text-muted);font-size:0.85rem;">اختر صنفاً أولاً</p>';
   document.getElementById('tableItemModal').classList.remove('hidden');
+}
+
+function filterTableItemSearch() {
+  const query = document.getElementById('tableItemSearch').value.trim().toLowerCase();
+  const resultsDiv = document.getElementById('tableItemSearchResults');
+  if (!query) {
+    resultsDiv.style.display = 'none';
+    return;
+  }
+  const filtered = allItems.filter(i => i.name.toLowerCase().includes(query) || (i.description || '').toLowerCase().includes(query));
+  if (filtered.length === 0) {
+    resultsDiv.innerHTML = '<p style="padding:0.8rem;color:var(--text-muted);font-size:0.9rem;">لا توجد نتائج</p>';
+    resultsDiv.style.display = 'block';
+    return;
+  }
+  resultsDiv.innerHTML = filtered.map(i => `
+    <div onclick="selectTableItem(${i.id})" style="padding:0.7rem 1rem;cursor:pointer;border-bottom:1px solid var(--border);transition:background 0.15s;" onmouseover="this.style.background='var(--cream)'" onmouseout="this.style.background=''">
+      <div style="font-weight:700;">${i.name}</div>
+      <div style="font-size:0.85rem;color:var(--text-muted);">${formatPrice(i.price)}</div>
+    </div>
+  `).join('');
+  resultsDiv.style.display = 'block';
+}
+
+function selectTableItem(itemId) {
+  document.getElementById('tableItemSelectedId').value = itemId;
+  const item = allItems.find(i => i.id === itemId);
+  if (item) {
+    document.getElementById('tableItemSearch').value = item.name;
+    document.getElementById('tableItemSearchResults').style.display = 'none';
+    renderTableItemAdditions(itemId);
+  }
 }
 
 function renderTableItemAdditions(itemId) {
@@ -1746,7 +1777,8 @@ function closeTableItemModal() {
 
 async function saveTableItem() {
   const tabId = document.getElementById('tableItemTabId').value;
-  const itemId = document.getElementById('tableItemSelect').value;
+  const itemId = document.getElementById('tableItemSelectedId').value;
+  if (!itemId) return showToast('اختر صنفاً أولاً ⚠️', 'warning');
   const qty = parseInt(document.getElementById('tableItemQty').value) || 1;
   const item = allItems.find(i => i.id == itemId);
   if (!item) return;

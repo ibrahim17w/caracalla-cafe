@@ -754,9 +754,18 @@ app.put('/api/table-tabs/:id/close', verifyToken, requireRole(['owner']), async 
     }
     const tab = tabRes.rows[0];
     
+    const today = getSyriaDate();
+    const maxDailyResult = await client.query(
+      `SELECT COALESCE(MAX(daily_order_number), 0) as max_num FROM orders 
+       WHERE DATE(created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Damascus') = $1`,
+      [today]
+    );
+    const maxNum = parseInt(maxDailyResult.rows[0].max_num) || 0;
+    const nextDailyNum = maxNum + 1;
+
     const orderResult = await client.query(
       'INSERT INTO orders (customer_name, table_number, order_type, status, total_amount, notes, daily_order_number) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *',
-      ['طاولة ' + tab.table_number, tab.table_number, 'dine_in', 'completed', tab.total_amount, 'تم إغلاق التبويب', 0]
+      ['طاولة ' + tab.table_number, tab.table_number, 'dine_in', 'completed', tab.total_amount, 'تم إغلاق التبويب', nextDailyNum]
     );
     const order = orderResult.rows[0];
     

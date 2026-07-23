@@ -381,8 +381,10 @@
       <h2>➕ إضافة صنف للطاولة <span id="tableItemTableNum"></span></h2>
       <input type="hidden" id="tableItemTabId">
       <div class="form-group">
-        <label>الصنف</label>
-        <select id="tableItemSelect"></select>
+        <label>البحث عن الصنف</label>
+        <input type="text" id="tableItemSearch" placeholder="اكتب اسم الصنف..." oninput="filterTableItemSearch()" autocomplete="off">
+        <div id="tableItemSearchResults" style="max-height:200px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--radius-sm);margin-top:0.5rem;display:none;background:var(--white);"></div>
+        <input type="hidden" id="tableItemSelectedId">
       </div>
       <div class="form-group">
         <label>الكمية</label>

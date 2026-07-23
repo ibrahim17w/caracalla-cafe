@@ -113,20 +113,25 @@ async function loadStats() {
       <div class="stat-card"><div class="stat-value">${stats.delivering}</div><div class="stat-label">قيد التوصيل</div></div>
       <div class="stat-card"><div class="stat-value">${stats.todayOrders}</div><div class="stat-label">طلبات اليوم</div></div>
     `;
-    // Add refresh button next to stats
-    let refreshBtn = document.getElementById('driverRefreshBtn');
-    if (!refreshBtn) {
-      refreshBtn = document.createElement('button');
-      refreshBtn.id = 'driverRefreshBtn';
-      refreshBtn.className = 'btn btn-outline btn-block mt-1';
-      refreshBtn.innerHTML = '🔄 تحديث الطلبات';
-      refreshBtn.onclick = async () => {
+    // Add refresh button below stats
+    let refreshWrap = document.getElementById('driverRefreshWrap');
+    if (!refreshWrap) {
+      refreshWrap = document.createElement('div');
+      refreshWrap.id = 'driverRefreshWrap';
+      refreshWrap.style.cssText = 'display:flex;justify-content:center;margin:1.2rem 0;';
+      refreshWrap.innerHTML = `<button id="driverRefreshBtn" class="btn btn-outline" style="border-radius:50px;padding:0.6rem 2rem;font-size:0.95rem;display:inline-flex;align-items:center;gap:0.5rem;box-shadow:var(--shadow);">🔄 تحديث الطلبات</button>`;
+      refreshWrap.querySelector('button').onclick = async function() {
+        const btn = this;
+        btn.disabled = true;
+        btn.innerHTML = '<span style="display:inline-block;animation:spin 1s linear infinite;">↻</span> جاري التحديث...';
         await loadOrders();
         renderOrders();
         loadStats();
+        btn.disabled = false;
+        btn.innerHTML = '🔄 تحديث الطلبات';
         showToast('تم التحديث ✅', 'success');
       };
-      document.getElementById('statsGrid').parentNode.insertBefore(refreshBtn, document.getElementById('statsGrid').nextSibling);
+      document.getElementById('statsGrid').parentNode.insertBefore(refreshWrap, document.getElementById('statsGrid').nextSibling);
     }
   } catch (e) { console.error('Stats error', e); }
 }
