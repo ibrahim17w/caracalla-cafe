@@ -474,6 +474,12 @@ app.post('/api/orders', rateLimitOrders, async (req, res) => {
 
     // Secure stateless token for this order (customer can cancel/confirm only with this)
     order.customer_token = jwt.sign({ oid: order.id, daily: nextDailyNum }, JWT_SECRET, { expiresIn: '7d' });
+    
+    // Auto-sync to table tab for dine-in orders
+    if (order_type === 'dine_in' && table_number) {
+      await syncOrderToTableTab(client, order.id, table_number, items, total);
+    }
+    
     for (const it of items) {
       const itemSubtotal = it.price * it.quantity + (it.additions || []).reduce((s, a) => s + (a.price || 0) * it.quantity, 0);
       const oiResult = await client.query(
@@ -663,6 +669,13 @@ app.post('/api/orders/:id/items', async (req, res) => {
     }
 
     await client.query('UPDATE orders SET total_amount = total_amount + $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2', [totalAdded, orderId]);
+    
+    // Auto-sync added items to table tab
+    const orderInfo = orderCheck.rows[0];
+    if (orderInfo.order_type === 'dine_in' && orderInfo.table_number) {
+      await syncOrderToTableTab(client, orderId, orderInfo.table_number, items, totalAdded);
+    }
+    
     await client.query('COMMIT');
     res.json({ success: true, added_amount: totalAdded });
   } catch (err) {
@@ -700,7 +713,11 @@ app.post('/api/table-tabs', verifyToken, requireRole(['owner']), async (req, res
   const { table_number, items } = req.body;
   try {
     let total = 0;
-    const parsedItems = items || [];
+    const parsedItems = (items || []).map(it => ({
+      ...it,
+      source: 'manual',
+      added_at: new Date().toISOString()
+    }));
     for (const it of parsedItems) {
       let sub = it.price * it.quantity;
       if (it.additions) for (const a of it.additions) sub += (a.price || 0) * it.quantity;
@@ -731,7 +748,7 @@ app.put('/api/table-tabs/:id/items', verifyToken, requireRole(['owner']), async 
       let sub = it.price * it.quantity;
       if (it.additions) for (const a of it.additions) sub += (a.price || 0) * it.quantity;
       total += sub;
-      currentItems.push({ ...it, added_at: new Date().toISOString() });
+      currentItems.push({ ...it, source: 'manual', added_at: new Date().toISOString() });
     }
     
     await client.query('UPDATE table_tabs SET items = $1, total_amount = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $3', [JSON.stringify(currentItems), total, req.params.id]);
@@ -780,6 +797,14 @@ app.put('/api/table-tabs/:id/close', verifyToken, requireRole(['owner']), async 
           await client.query('INSERT INTO order_item_additions (order_item_id, addition_name, addition_price) VALUES ($1, $2, $3)', [oiResult.rows[0].id, add.name, add.price || 0]);
         }
       }
+    }
+    
+    // Mark all related customer orders as completed
+    const relatedOrderIds = [...new Set((tab.items || [])
+      .filter(it => it.source === 'customer' && it.source_order_id)
+      .map(it => it.source_order_id))];
+    for (const oid of relatedOrderIds) {
+      await client.query('UPDATE orders SET status = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2 AND status != $1', ['completed', oid]);
     }
     
     await client.query("UPDATE table_tabs SET status = 'closed', closed_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP WHERE id = $1", [req.params.id]);
@@ -845,6 +870,49 @@ app.post('/api/import/items', verifyToken, requireRole(['owner']), async (req, r
     res.status(500).json({ error: err.message });
   } finally { client.release(); }
 });
+
+// Helper: sync dine-in order items to open table tab
+async function syncOrderToTableTab(client, orderId, tableNumber, items, newItemsTotal) {
+  if (!tableNumber) return;
+  const tabRes = await client.query(
+    "SELECT * FROM table_tabs WHERE table_number = $1 AND status = 'open'",
+    [tableNumber]
+  );
+  
+  const enrichedItems = items.map(it => ({
+    id: it.id,
+    name: it.name,
+    price: parseFloat(it.price),
+    quantity: it.quantity,
+    additions: it.additions || [],
+    source: 'customer',
+    source_order_id: orderId,
+    added_at: new Date().toISOString()
+  }));
+  
+  if (tabRes.rows.length === 0) {
+    await client.query(
+      'INSERT INTO table_tabs (table_number, items, total_amount, status) VALUES ($1, $2, $3, $4)',
+      [tableNumber, JSON.stringify(enrichedItems), newItemsTotal, 'open']
+    );
+  } else {
+    const tab = tabRes.rows[0];
+    const currentItems = tab.items || [];
+    let currentTotal = parseFloat(tab.total_amount) || 0;
+    
+    for (const it of enrichedItems) {
+      let sub = it.price * it.quantity;
+      if (it.additions) for (const a of it.additions) sub += (a.price || 0) * it.quantity;
+      currentTotal += sub;
+    }
+    
+    currentItems.push(...enrichedItems);
+    await client.query(
+      'UPDATE table_tabs SET items = $1, total_amount = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $3',
+      [JSON.stringify(currentItems), currentTotal, tab.id]
+    );
+  }
+}
 
 // ===================== STATS =====================
 app.get('/api/stats', verifyToken, requireRole(['owner', 'driver']), async (req, res) => {

@@ -1654,12 +1654,24 @@ function renderTableTabs() {
     activeGrid.innerHTML = '';
     active.forEach(tab => {
       const items = tab.items || [];
-      let itemsHtml = items.map(it => `
-        <div style="display:flex;justify-content:space-between;padding:0.3rem 0;border-bottom:1px solid var(--border);font-size:0.9rem;">
-          <span>${it.name} × ${it.quantity}</span>
-          <span style="font-weight:700;">${formatPrice(it.price * it.quantity)}</span>
-        </div>
-      `).join('');
+      const itemsHtml = items.map(it => {
+        let addsHtml = '';
+        if (it.additions && it.additions.length > 0) {
+          addsHtml = `<div style="padding-right:1rem;font-size:0.8rem;color:var(--text-muted);">${it.additions.map(a => `+ ${a.name}`).join('، ')}</div>`;
+        }
+        const sourceBadge = it.source === 'customer' 
+          ? `<span style="font-size:0.7rem;background:var(--info);color:white;padding:1px 6px;border-radius:8px;margin-left:0.3rem;">📱</span>` 
+          : `<span style="font-size:0.7rem;background:var(--warning);color:white;padding:1px 6px;border-radius:8px;margin-left:0.3rem;">✏️</span>`;
+        return `
+          <div style="padding:0.4rem 0;border-bottom:1px solid var(--border);font-size:0.9rem;">
+            <div style="display:flex;justify-content:space-between;">
+              <span>${it.name} × ${it.quantity}${sourceBadge}</span>
+              <span style="font-weight:700;">${formatPrice(it.price * it.quantity)}</span>
+            </div>
+            ${addsHtml}
+          </div>
+        `;
+      }).join('');
       const card = document.createElement('div');
       card.className = 'card';
       card.style.borderRight = '4px solid var(--primary)';
@@ -1848,7 +1860,8 @@ function printTableReceipt(tabId) {
       it.additions.forEach(a => { sub += (a.price || 0) * it.quantity; addsHtml += `<div style="padding-right:1rem;font-size:0.85rem;color:#666;">+ ${a.name}</div>`; });
     }
     total += sub;
-    itemsHtml += `<div style="display:flex;justify-content:space-between;margin-bottom:0.2rem;"><span>${it.name} × ${it.quantity}</span><span>${Math.round(sub).toLocaleString('en-US')} ل.س</span></div>${addsHtml}`;
+    const sourceBadge = it.source === 'customer' ? ' 📱' : ' ✏️';
+    itemsHtml += `<div style="display:flex;justify-content:space-between;margin-bottom:0.2rem;"><span>${it.name} × ${it.quantity}${sourceBadge}</span><span>${Math.round(sub).toLocaleString('en-US')} ل.س</span></div>${addsHtml}`;
   });
   const w = window.open('', '_blank');
   w.document.write(`
