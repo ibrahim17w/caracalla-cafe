@@ -125,7 +125,7 @@ async function init() {
   populateCategorySelects();
   applySettings();
   
-  // Global order polling — runs regardless of active tab
+  // Global order polling — slower interval, manual refresh available
   if (ownerRefreshInterval) clearInterval(ownerRefreshInterval);
   ownerRefreshInterval = setInterval(async () => {
     await loadOrders();
@@ -133,7 +133,7 @@ async function init() {
     const ordersTabActive = document.querySelector('.tab.active')?.textContent?.includes('الطلبات');
     if (ordersTabActive) renderOrders();
     loadStats();
-  }, 10000);
+  }, 60000); // 60 seconds instead of 10
 }
 
 async function loadSettings() {
@@ -1001,7 +1001,7 @@ function renderOrders() {
 
   // Active orders section
   if (activeOrders.length > 0) {
-    html += '<h3 style="color:var(--primary);margin:1.5rem 0 1rem;font-size:1.2rem;font-weight:800;">🔥 الطلبات النشطة (' + activeOrders.length + ')</h3>';
+    html += '<div style="display:flex;justify-content:space-between;align-items:center;margin:1.5rem 0 1rem;"><h3 style="color:var(--primary);font-size:1.2rem;font-weight:800;">🔥 الطلبات النشطة (' + activeOrders.length + ')</h3><button class="btn btn-outline btn-sm" onclick="manualRefreshOrders()">🔄 تحديث</button></div>';
     activeOrders.forEach(order => {
       html += renderOrderCard(order);
     });
@@ -1115,7 +1115,12 @@ async function updateOrderStatus(orderId, status) {
     loadStats();
   } catch (e) { showToast('تعذر تحديث حالة الطلب ❌', 'error'); }
 }
-
+async function manualRefreshOrders() {
+  await loadOrders();
+  renderOrders();
+  loadStats();
+  showToast('تم التحديث ✅', 'success');
+}
 async function cancelOrder(orderId) {
   const confirmed = await showConfirm('هل تريد إلغاء هذا الطلب؟', 'تأكيد الإلغاء', '❌');
   if (!confirmed) return;

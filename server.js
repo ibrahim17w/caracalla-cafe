@@ -709,6 +709,80 @@ app.get('/api/stats', verifyToken, requireRole(['owner', 'driver']), async (req,
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+// ===================== TABLE SESSIONS =====================
+app.get('/api/tables', verifyToken, requireRole(['owner']), async (req, res) => {
+  try {
+    const result = await pool.query("SELECT * FROM table_sessions WHERE status = 'active' ORDER BY opened_at DESC");
+    const tables = result.rows;
+    for (const t of tables) {
+      const itemsRes = await pool.query('SELECT * FROM table_session_items WHERE table_session_id = $1 ORDER BY created_at', [t.id]);
+      t.items = itemsRes.rows;
+    }
+    res.json(tables);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/tables', verifyToken, requireRole(['owner']), async (req, res) => {
+  const { table_number, notes } = req.body;
+  if (!table_number) return res.status(400).json({ error: 'Table number required' });
+  try {
+    const result = await pool.query(
+      "INSERT INTO table_sessions (table_number, status, notes) VALUES ($1, 'active', $2) RETURNING *",
+      [table_number, notes || '']
+    );
+    res.json(result.rows[0]);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.get('/api/tables/:id', verifyToken, requireRole(['owner']), async (req, res) => {
+  try {
+    const tableRes = await pool.query('SELECT * FROM table_sessions WHERE id = $1', [req.params.id]);
+    if (tableRes.rows.length === 0) return res.status(404).json({ error: 'Table not found' });
+    const table = tableRes.rows[0];
+    const itemsRes = await pool.query('SELECT * FROM table_session_items WHERE table_session_id = $1 ORDER BY created_at', [req.params.id]);
+    table.items = itemsRes.rows;
+    res.json(table);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/tables/:id/items', verifyToken, requireRole(['owner']), async (req, res) => {
+  const { item_id, item_name, quantity, unit_price, additions } = req.body;
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const itemRes = await client.query(
+      'INSERT INTO table_session_items (table_session_id, item_id, item_name, quantity, unit_price, additions) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
+      [req.params.id, item_id || null, item_name, quantity || 1, unit_price, JSON.stringify(additions || [])]
+    );
+    await client.query(
+      'UPDATE table_sessions SET total_amount = total_amount + $1 WHERE id = $2',
+      [(unit_price || 0) * (quantity || 1), req.params.id]
+    );
+    await client.query('COMMIT');
+    res.json(itemRes.rows[0]);
+  } catch (err) {
+    await client.query('ROLLBACK');
+    res.status(500).json({ error: err.message });
+  } finally { client.release(); }
+});
+
+app.put('/api/tables/:id/close', verifyToken, requireRole(['owner']), async (req, res) => {
+  try {
+    const result = await pool.query(
+      "UPDATE table_sessions SET status = 'closed', closed_at = CURRENT_TIMESTAMP WHERE id = $1 RETURNING *",
+      [req.params.id]
+    );
+    res.json(result.rows[0]);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.delete('/api/tables/:id', verifyToken, requireRole(['owner']), async (req, res) => {
+  try {
+    await pool.query('DELETE FROM table_sessions WHERE id = $1', [req.params.id]);
+    res.json({ success: true });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
 // ===================== BEST SELLERS =====================
 app.get('/api/best-sellers', async (req, res) => {
   try {

@@ -69,7 +69,6 @@ async function doLogin() {
 
 function logout() {
   localStorage.removeItem('driver_token');
-  if (refreshInterval) clearInterval(refreshInterval);
   location.reload();
 }
 
@@ -80,10 +79,7 @@ function authHeaders() {
 async function init() {
   await Promise.all([loadSettings(), loadOrders(), loadStats()]);
   renderOrders();
-  refreshInterval = setInterval(() => {
-    loadOrders().then(renderOrders);
-    loadStats();
-  }, 5000);
+  // No auto-polling — driver refreshes manually
 }
 
 async function loadSettings() {
@@ -117,6 +113,21 @@ async function loadStats() {
       <div class="stat-card"><div class="stat-value">${stats.delivering}</div><div class="stat-label">قيد التوصيل</div></div>
       <div class="stat-card"><div class="stat-value">${stats.todayOrders}</div><div class="stat-label">طلبات اليوم</div></div>
     `;
+    // Add refresh button next to stats
+    let refreshBtn = document.getElementById('driverRefreshBtn');
+    if (!refreshBtn) {
+      refreshBtn = document.createElement('button');
+      refreshBtn.id = 'driverRefreshBtn';
+      refreshBtn.className = 'btn btn-outline btn-block mt-1';
+      refreshBtn.innerHTML = '🔄 تحديث الطلبات';
+      refreshBtn.onclick = async () => {
+        await loadOrders();
+        renderOrders();
+        loadStats();
+        showToast('تم التحديث ✅', 'success');
+      };
+      document.getElementById('statsGrid').parentNode.insertBefore(refreshBtn, document.getElementById('statsGrid').nextSibling);
+    }
   } catch (e) { console.error('Stats error', e); }
 }
 
