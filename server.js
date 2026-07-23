@@ -736,11 +736,12 @@ app.put('/api/table-tabs/:id/items', verifyToken, requireRole(['owner']), async 
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
-    const tabRes = await client.query('SELECT items, total_amount FROM table_tabs WHERE id = $1 AND status = $2', [req.params.id, 'open']);
+    const tabRes = await client.query('SELECT table_number, items, total_amount FROM table_tabs WHERE id = $1 AND status = $2', [req.params.id, 'open']);
     if (tabRes.rows.length === 0) {
       await client.query('ROLLBACK');
       return res.status(404).json({ error: 'Tab not found or already closed' });
     }
+    const tableNumber = tabRes.rows[0].table_number;
     const currentItems = tabRes.rows[0].items || [];
     let total = parseFloat(tabRes.rows[0].total_amount) || 0;
     
@@ -752,6 +753,32 @@ app.put('/api/table-tabs/:id/items', verifyToken, requireRole(['owner']), async 
     }
     
     await client.query('UPDATE table_tabs SET items = $1, total_amount = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $3', [JSON.stringify(currentItems), total, req.params.id]);
+    
+    // Sync manual items to the most recent open order for this table
+    const orderRes = await client.query(
+      "SELECT id, total_amount FROM orders WHERE table_number = $1 AND status NOT IN ('completed', 'cancelled') ORDER BY created_at DESC LIMIT 1",
+      [tableNumber]
+    );
+    if (orderRes.rows.length > 0) {
+      const orderId = orderRes.rows[0].id;
+      let orderTotal = parseFloat(orderRes.rows[0].total_amount) || 0;
+      for (const it of items) {
+        let itemSubtotal = it.price * it.quantity;
+        if (it.additions) { for (const a of it.additions) itemSubtotal += (a.price || 0) * it.quantity; }
+        orderTotal += itemSubtotal;
+        const oiResult = await client.query(
+          'INSERT INTO order_items (order_id, item_id, item_name, quantity, unit_price, subtotal) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
+          [orderId, it.id || null, it.name, it.quantity, it.price, itemSubtotal]
+        );
+        if (it.additions) {
+          for (const add of it.additions) {
+            await client.query('INSERT INTO order_item_additions (order_item_id, addition_name, addition_price) VALUES ($1, $2, $3)', [oiResult.rows[0].id, add.name, add.price || 0]);
+          }
+        }
+      }
+      await client.query('UPDATE orders SET total_amount = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2', [orderTotal, orderId]);
+    }
+    
     await client.query('COMMIT');
     res.json({ success: true, total_amount: total });
   } catch (err) {
@@ -771,34 +798,6 @@ app.put('/api/table-tabs/:id/close', verifyToken, requireRole(['owner']), async 
     }
     const tab = tabRes.rows[0];
     
-    const today = getSyriaDate();
-    const maxDailyResult = await client.query(
-      `SELECT COALESCE(MAX(daily_order_number), 0) as max_num FROM orders 
-       WHERE DATE(created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Damascus') = $1`,
-      [today]
-    );
-    const maxNum = parseInt(maxDailyResult.rows[0].max_num) || 0;
-    const nextDailyNum = maxNum + 1;
-
-    const orderResult = await client.query(
-      'INSERT INTO orders (customer_name, table_number, order_type, status, total_amount, notes, daily_order_number) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *',
-      ['طاولة ' + tab.table_number, tab.table_number, 'dine_in', 'completed', tab.total_amount, 'تم إغلاق التبويب', nextDailyNum]
-    );
-    const order = orderResult.rows[0];
-    
-    for (const it of tab.items || []) {
-      const subtotal = it.price * it.quantity + (it.additions || []).reduce((s, a) => s + (a.price || 0) * it.quantity, 0);
-      const oiResult = await client.query(
-        'INSERT INTO order_items (order_id, item_id, item_name, quantity, unit_price, subtotal) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
-        [order.id, it.id || null, it.name, it.quantity, it.price, subtotal]
-      );
-      if (it.additions) {
-        for (const add of it.additions) {
-          await client.query('INSERT INTO order_item_additions (order_item_id, addition_name, addition_price) VALUES ($1, $2, $3)', [oiResult.rows[0].id, add.name, add.price || 0]);
-        }
-      }
-    }
-    
     // Mark all related customer orders as completed
     const relatedOrderIds = [...new Set((tab.items || [])
       .filter(it => it.source === 'customer' && it.source_order_id)
@@ -809,7 +808,7 @@ app.put('/api/table-tabs/:id/close', verifyToken, requireRole(['owner']), async 
     
     await client.query("UPDATE table_tabs SET status = 'closed', closed_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP WHERE id = $1", [req.params.id]);
     await client.query('COMMIT');
-    res.json({ success: true, order_id: order.id });
+    res.json({ success: true });
   } catch (err) {
     await client.query('ROLLBACK');
     res.status(500).json({ error: err.message });
