@@ -688,6 +688,155 @@ function getSyriaDate(d = new Date()) {
   const day = parts.find(p => p.type === 'day').value;
   return `${year}-${month}-${day}`;
 }
+// ===================== TABLE TABS =====================
+app.get('/api/table-tabs', verifyToken, requireRole(['owner']), async (req, res) => {
+  try {
+    const result = await pool.query("SELECT * FROM table_tabs ORDER BY created_at DESC");
+    res.json(result.rows);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/table-tabs', verifyToken, requireRole(['owner']), async (req, res) => {
+  const { table_number, items } = req.body;
+  try {
+    let total = 0;
+    const parsedItems = items || [];
+    for (const it of parsedItems) {
+      let sub = it.price * it.quantity;
+      if (it.additions) for (const a of it.additions) sub += (a.price || 0) * it.quantity;
+      total += sub;
+    }
+    const result = await pool.query(
+      'INSERT INTO table_tabs (table_number, items, total_amount, status) VALUES ($1, $2, $3, $4) RETURNING *',
+      [table_number, JSON.stringify(parsedItems), total, 'open']
+    );
+    res.json(result.rows[0]);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.put('/api/table-tabs/:id/items', verifyToken, requireRole(['owner']), async (req, res) => {
+  const { items } = req.body;
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const tabRes = await client.query('SELECT items, total_amount FROM table_tabs WHERE id = $1 AND status = $2', [req.params.id, 'open']);
+    if (tabRes.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Tab not found or already closed' });
+    }
+    const currentItems = tabRes.rows[0].items || [];
+    let total = parseFloat(tabRes.rows[0].total_amount) || 0;
+    
+    for (const it of items) {
+      let sub = it.price * it.quantity;
+      if (it.additions) for (const a of it.additions) sub += (a.price || 0) * it.quantity;
+      total += sub;
+      currentItems.push({ ...it, added_at: new Date().toISOString() });
+    }
+    
+    await client.query('UPDATE table_tabs SET items = $1, total_amount = $2, updated_at = CURRENT_TIMESTAMP WHERE id = $3', [JSON.stringify(currentItems), total, req.params.id]);
+    await client.query('COMMIT');
+    res.json({ success: true, total_amount: total });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    res.status(500).json({ error: err.message });
+  } finally { client.release(); }
+});
+
+app.put('/api/table-tabs/:id/close', verifyToken, requireRole(['owner']), async (req, res) => {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const tabRes = await client.query('SELECT * FROM table_tabs WHERE id = $1', [req.params.id]);
+    if (tabRes.rows.length === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Tab not found' });
+    }
+    const tab = tabRes.rows[0];
+    
+    const orderResult = await client.query(
+      'INSERT INTO orders (customer_name, table_number, order_type, status, total_amount, notes, daily_order_number) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *',
+      ['طاولة ' + tab.table_number, tab.table_number, 'dine_in', 'completed', tab.total_amount, 'تم إغلاق التبويب', 0]
+    );
+    const order = orderResult.rows[0];
+    
+    for (const it of tab.items || []) {
+      const subtotal = it.price * it.quantity + (it.additions || []).reduce((s, a) => s + (a.price || 0) * it.quantity, 0);
+      const oiResult = await client.query(
+        'INSERT INTO order_items (order_id, item_id, item_name, quantity, unit_price, subtotal) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
+        [order.id, it.id || null, it.name, it.quantity, it.price, subtotal]
+      );
+      if (it.additions) {
+        for (const add of it.additions) {
+          await client.query('INSERT INTO order_item_additions (order_item_id, addition_name, addition_price) VALUES ($1, $2, $3)', [oiResult.rows[0].id, add.name, add.price || 0]);
+        }
+      }
+    }
+    
+    await client.query("UPDATE table_tabs SET status = 'closed', closed_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP WHERE id = $1", [req.params.id]);
+    await client.query('COMMIT');
+    res.json({ success: true, order_id: order.id });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    res.status(500).json({ error: err.message });
+  } finally { client.release(); }
+});
+
+app.delete('/api/table-tabs/:id', verifyToken, requireRole(['owner']), async (req, res) => {
+  try {
+    await pool.query('DELETE FROM table_tabs WHERE id = $1', [req.params.id]);
+    res.json({ success: true });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// ===================== EXPORT / IMPORT =====================
+app.get('/api/export/items', verifyToken, requireRole(['owner']), async (req, res) => {
+  try {
+    const itemsRes = await pool.query('SELECT * FROM items ORDER BY id');
+    const items = itemsRes.rows;
+    for (let item of items) {
+      const addRes = await pool.query('SELECT name, price FROM item_additions WHERE item_id = $1', [item.id]);
+      item.additions = addRes.rows;
+    }
+    const rows = items.map(i => {
+      const adds = JSON.stringify(i.additions || []).replace(/"/g, '""');
+      return `${i.id},"${(i.name||'').replace(/"/g,'""')}",${i.category_id||''},"${(i.description||'').replace(/"/g,'""')}",${i.price},${i.stock||''},${i.is_available},"${(i.image_path||'').replace(/"/g,'""')}","${adds}"`;
+    });
+    const csv = 'id,name,category_id,description,price,stock,is_available,image_path,additions\n' + rows.join('\n');
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', 'attachment; filename=caracalla_items.csv');
+    res.send('\uFEFF' + csv);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+app.post('/api/import/items', verifyToken, requireRole(['owner']), async (req, res) => {
+  const { items } = req.body;
+  if (!Array.isArray(items)) return res.status(400).json({ error: 'Items array required' });
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    for (const it of items) {
+      const adds = it.additions || [];
+      let imagePath = it.image_path || null;
+      if (imagePath && !imagePath.startsWith('data:')) imagePath = null;
+      
+      const itemResult = await client.query(
+        'INSERT INTO items (category_id, name, description, price, stock, image_path, is_available, sort_order) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *',
+        [it.category_id || null, it.name, it.description || '', it.price, it.stock || null, imagePath, it.is_available !== false, it.sort_order || 0]
+      );
+      const item = itemResult.rows[0];
+      for (const add of adds) {
+        if (add.name) await client.query('INSERT INTO item_additions (item_id, name, price) VALUES ($1, $2, $3)', [item.id, add.name, add.price || 0]);
+      }
+    }
+    await client.query('COMMIT');
+    res.json({ success: true, imported: items.length });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    res.status(500).json({ error: err.message });
+  } finally { client.release(); }
+});
+
 // ===================== STATS =====================
 app.get('/api/stats', verifyToken, requireRole(['owner', 'driver']), async (req, res) => {
   try {
@@ -706,80 +855,6 @@ app.get('/api/stats', verifyToken, requireRole(['owner', 'driver']), async (req,
       todayOrders: parseInt(todayOrders.rows[0].count),
       todayRevenue: parseFloat(todayRevenue.rows[0].coalesce)
     });
-  } catch (err) { res.status(500).json({ error: err.message }); }
-});
-
-// ===================== TABLE SESSIONS =====================
-app.get('/api/tables', verifyToken, requireRole(['owner']), async (req, res) => {
-  try {
-    const result = await pool.query("SELECT * FROM table_sessions WHERE status = 'active' ORDER BY opened_at DESC");
-    const tables = result.rows;
-    for (const t of tables) {
-      const itemsRes = await pool.query('SELECT * FROM table_session_items WHERE table_session_id = $1 ORDER BY created_at', [t.id]);
-      t.items = itemsRes.rows;
-    }
-    res.json(tables);
-  } catch (err) { res.status(500).json({ error: err.message }); }
-});
-
-app.post('/api/tables', verifyToken, requireRole(['owner']), async (req, res) => {
-  const { table_number, notes } = req.body;
-  if (!table_number) return res.status(400).json({ error: 'Table number required' });
-  try {
-    const result = await pool.query(
-      "INSERT INTO table_sessions (table_number, status, notes) VALUES ($1, 'active', $2) RETURNING *",
-      [table_number, notes || '']
-    );
-    res.json(result.rows[0]);
-  } catch (err) { res.status(500).json({ error: err.message }); }
-});
-
-app.get('/api/tables/:id', verifyToken, requireRole(['owner']), async (req, res) => {
-  try {
-    const tableRes = await pool.query('SELECT * FROM table_sessions WHERE id = $1', [req.params.id]);
-    if (tableRes.rows.length === 0) return res.status(404).json({ error: 'Table not found' });
-    const table = tableRes.rows[0];
-    const itemsRes = await pool.query('SELECT * FROM table_session_items WHERE table_session_id = $1 ORDER BY created_at', [req.params.id]);
-    table.items = itemsRes.rows;
-    res.json(table);
-  } catch (err) { res.status(500).json({ error: err.message }); }
-});
-
-app.post('/api/tables/:id/items', verifyToken, requireRole(['owner']), async (req, res) => {
-  const { item_id, item_name, quantity, unit_price, additions } = req.body;
-  const client = await pool.connect();
-  try {
-    await client.query('BEGIN');
-    const itemRes = await client.query(
-      'INSERT INTO table_session_items (table_session_id, item_id, item_name, quantity, unit_price, additions) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
-      [req.params.id, item_id || null, item_name, quantity || 1, unit_price, JSON.stringify(additions || [])]
-    );
-    await client.query(
-      'UPDATE table_sessions SET total_amount = total_amount + $1 WHERE id = $2',
-      [(unit_price || 0) * (quantity || 1), req.params.id]
-    );
-    await client.query('COMMIT');
-    res.json(itemRes.rows[0]);
-  } catch (err) {
-    await client.query('ROLLBACK');
-    res.status(500).json({ error: err.message });
-  } finally { client.release(); }
-});
-
-app.put('/api/tables/:id/close', verifyToken, requireRole(['owner']), async (req, res) => {
-  try {
-    const result = await pool.query(
-      "UPDATE table_sessions SET status = 'closed', closed_at = CURRENT_TIMESTAMP WHERE id = $1 RETURNING *",
-      [req.params.id]
-    );
-    res.json(result.rows[0]);
-  } catch (err) { res.status(500).json({ error: err.message }); }
-});
-
-app.delete('/api/tables/:id', verifyToken, requireRole(['owner']), async (req, res) => {
-  try {
-    await pool.query('DELETE FROM table_sessions WHERE id = $1', [req.params.id]);
-    res.json({ success: true });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 

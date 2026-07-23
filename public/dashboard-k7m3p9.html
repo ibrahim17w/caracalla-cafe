@@ -68,14 +68,20 @@
         <button class="tab active" onclick="switchTab('items', this)">الأصناف</button>
         <button class="tab" onclick="switchTab('add', this)">إضافة صنف</button>
         <button class="tab" onclick="switchTab('categories', this)">الأقسام</button>
+        <button class="tab" onclick="switchTab('tables', this)">الطاولات</button>
         <button class="tab" onclick="switchTab('orders', this)">الطلبات</button>
         <button class="tab" onclick="switchTab('settings', this)">الإعدادات</button>
       </div>
 
       <!-- Items Tab -->
       <div id="tab-items">
-        <div class="form-group" style="margin-bottom:1rem;">
-          <input type="text" id="itemSearch" placeholder="🔍 البحث في الأصناف..." oninput="filterItems()">
+        <div class="flex gap-1 align-center" style="margin-bottom:1rem;flex-wrap:wrap;">
+          <input type="text" id="itemSearch" placeholder="🔍 البحث في الأصناف..." oninput="filterItems()" style="flex:1;min-width:200px;">
+          <button class="btn btn-outline btn-sm" onclick="exportItemsCSV()">📥 تصدير CSV</button>
+          <label class="btn btn-outline btn-sm" style="cursor:pointer;">
+            📤 استيراد CSV
+            <input type="file" id="importCsvInput" accept=".csv" onchange="importItemsCSV(this)" style="display:none;">
+          </label>
         </div>
         <div class="grid" id="ownerItemsGrid"></div>
       </div>
@@ -146,6 +152,20 @@
       <!-- Orders Tab -->
       <div id="tab-orders" class="hidden">
         <div id="ownerOrders"></div>
+      </div>
+
+      <!-- Tables Tab -->
+      <div id="tab-tables" class="hidden">
+        <div class="card">
+          <h2>📋 إدارة الطاولات</h2>
+          <div class="flex gap-1 align-center" style="margin-bottom:1rem;">
+            <input type="text" id="newTableNumber" placeholder="رقم الطاولة" style="flex:1;">
+            <button class="btn btn-success" onclick="openTableTab()">فتح تبويب جديد</button>
+          </div>
+        </div>
+        <div id="activeTablesGrid" class="grid" style="margin-bottom:2rem;"></div>
+        <h3 style="color:var(--text-muted);margin:1.5rem 0 1rem;font-size:1.2rem;font-weight:800;">سجل الطاولات المغلقة</h3>
+        <div id="closedTablesList"></div>
       </div>
 
       <!-- Settings Tab -->
@@ -355,6 +375,30 @@
       </div>
     </div>
   </div>
+  <!-- Add Item to Table Modal -->
+  <div class="modal-overlay hidden" id="tableItemModal">
+    <div class="modal" style="max-width:500px;">
+      <h2>➕ إضافة صنف للطاولة <span id="tableItemTableNum"></span></h2>
+      <input type="hidden" id="tableItemTabId">
+      <div class="form-group">
+        <label>الصنف</label>
+        <select id="tableItemSelect"></select>
+      </div>
+      <div class="form-group">
+        <label>الكمية</label>
+        <input type="number" id="tableItemQty" value="1" min="1">
+      </div>
+      <div class="form-group">
+        <label>إضافات</label>
+        <div id="tableItemAdditions"></div>
+      </div>
+      <div class="flex gap-1 mt-1">
+        <button class="btn btn-success" onclick="saveTableItem()">إضافة</button>
+        <button class="btn" onclick="closeTableItemModal()" style="background:#eee;color:var(--text);">إلغاء</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Edit Category Modal -->
   <div class="modal-overlay hidden" id="editCatModal">
     <div class="modal" style="max-width:400px;">

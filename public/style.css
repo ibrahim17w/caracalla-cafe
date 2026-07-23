@@ -907,6 +907,28 @@ input[type="file"] {
 .font-bold { font-weight: 700; }
 
 
+/* ===== SKELETON LOADER ===== */
+.skeleton {
+  background: linear-gradient(90deg, var(--cream) 25%, var(--border) 50%, var(--cream) 75%);
+  background-size: 200% 100%;
+  animation: skeleton-loading 1.5s infinite;
+  border-radius: var(--radius-sm);
+}
+@keyframes skeleton-loading {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+.category-skeleton {
+  border-radius: var(--radius);
+}
+.menu-skeleton {
+  border-radius: var(--radius);
+}
+[data-theme="dark"] .skeleton {
+  background: linear-gradient(90deg, var(--white) 25%, #3a322c 50%, var(--white) 75%);
+  background-size: 200% 100%;
+}
+
 /* ===== PRINT RECEIPT ===== */
 @media print {
   body * { visibility: hidden; }

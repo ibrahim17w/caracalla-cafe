@@ -464,7 +464,7 @@ function printQR() {
 function switchTab(tab, el) {
   document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
   el.classList.add('active');
-  ['items', 'add', 'categories', 'orders', 'settings'].forEach(t => {
+  ['items', 'add', 'categories', 'tables', 'orders', 'settings'].forEach(t => {
     document.getElementById('tab-' + t).classList.toggle('hidden', t !== tab);
   });
   if (tab === 'orders') {
@@ -473,6 +473,10 @@ function switchTab(tab, el) {
   }
   if (tab === 'items') loadItems().then(() => renderItems());
   if (tab === 'categories') loadCategories().then(renderCategories);
+  if (tab === 'tables') {
+    if (!allItems.length) loadItems().then(() => {});
+    loadTableTabs().then(renderTableTabs);
+  }
   if (tab === 'settings') setTimeout(() => { if (cafeSettingMap) cafeSettingMap.invalidateSize(); }, 100);
 }
 
@@ -1622,6 +1626,290 @@ async function saveReceiptSettings() {
   showToast('تم حفظ إعدادات الفاتورة بنجاح! ✅', 'success');
   await loadSettings();
   applySettings();
+}
+
+// ===================== TABLE TABS =====================
+let allTableTabs = [];
+
+async function loadTableTabs() {
+  try {
+    const res = await fetch(`${API}/table-tabs`, { headers: authHeaders() });
+    if (!res.ok) throw new Error('Auth failed');
+    allTableTabs = await res.json();
+  } catch (e) {
+    console.error('Table tabs error', e);
+    if (e.message === 'Auth failed') { showToast('انتهت الجلسة، يرجى تسجيل الدخول مرة أخرى 🔒', 'warning'); logout(); }
+  }
+}
+
+function renderTableTabs() {
+  const activeGrid = document.getElementById('activeTablesGrid');
+  const closedList = document.getElementById('closedTablesList');
+  const active = allTableTabs.filter(t => t.status === 'open');
+  const closed = allTableTabs.filter(t => t.status === 'closed');
+
+  if (active.length === 0) {
+    activeGrid.innerHTML = '<p class="text-center" style="color:var(--text-muted);padding:2rem;">لا توجد طاولات مفتوحة حالياً.</p>';
+  } else {
+    activeGrid.innerHTML = '';
+    active.forEach(tab => {
+      const items = tab.items || [];
+      let itemsHtml = items.map(it => `
+        <div style="display:flex;justify-content:space-between;padding:0.3rem 0;border-bottom:1px solid var(--border);font-size:0.9rem;">
+          <span>${it.name} × ${it.quantity}</span>
+          <span style="font-weight:700;">${formatPrice(it.price * it.quantity)}</span>
+        </div>
+      `).join('');
+      const card = document.createElement('div');
+      card.className = 'card';
+      card.style.borderRight = '4px solid var(--primary)';
+      card.innerHTML = `
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.5rem;">
+          <h3 style="margin:0;color:var(--primary);font-size:1.3rem;">طاولة ${tab.table_number}</h3>
+          <span style="font-size:1.2rem;font-weight:800;color:var(--primary);">${formatPrice(tab.total_amount)}</span>
+        </div>
+        <div style="max-height:200px;overflow-y:auto;margin-bottom:1rem;">${itemsHtml || '<p style="color:var(--text-muted);font-size:0.9rem;">لا توجد أصناف بعد</p>'}</div>
+        <div class="flex gap-1" style="flex-wrap:wrap;">
+          <button class="btn btn-primary btn-sm" onclick="showAddTableItem(${tab.id}, '${tab.table_number}')">➕ إضافة صنف</button>
+          <button class="btn btn-success btn-sm" onclick="closeTableTab(${tab.id})">✔️ إغلاق التبويب</button>
+          <button class="btn btn-outline btn-sm" onclick="printTableReceipt(${tab.id})">🧾 فاتورة</button>
+          <button class="btn btn-danger btn-sm" onclick="deleteTableTab(${tab.id})">🗑️ حذف</button>
+        </div>
+      `;
+      activeGrid.appendChild(card);
+    });
+  }
+
+  if (closed.length === 0) {
+    closedList.innerHTML = '<p class="text-center" style="color:var(--text-muted);padding:2rem;">لا يوجد سجل.</p>';
+  } else {
+    closedList.innerHTML = closed.map(t => `
+      <div class="order-card completed" style="margin-bottom:0.5rem;padding:1rem;">
+        <div style="display:flex;justify-content:space-between;">
+          <strong>طاولة ${t.table_number}</strong>
+          <span style="font-weight:700;color:var(--primary);">${formatPrice(t.total_amount)}</span>
+        </div>
+        <div style="color:var(--text-muted);font-size:0.85rem;">تم الإغلاق: ${formatTime(t.closed_at)}</div>
+      </div>
+    `).join('');
+  }
+}
+
+async function openTableTab() {
+  const num = document.getElementById('newTableNumber').value.trim();
+  if (!num) return showToast('أدخل رقم الطاولة ⚠️', 'warning');
+  try {
+    const res = await fetch(`${API}/table-tabs`, {
+      method: 'POST',
+      headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ table_number: num, items: [] })
+    });
+    if (!res.ok) throw new Error('Failed');
+    showToast('تم فتح التبويب ✅', 'success');
+    document.getElementById('newTableNumber').value = '';
+    await loadTableTabs();
+    renderTableTabs();
+  } catch (e) { showToast('تعذر فتح التبويب ❌', 'error'); }
+}
+
+function showAddTableItem(tabId, tableNum) {
+  document.getElementById('tableItemTabId').value = tabId;
+  document.getElementById('tableItemTableNum').textContent = tableNum;
+  document.getElementById('tableItemQty').value = 1;
+  const select = document.getElementById('tableItemSelect');
+  select.innerHTML = allItems.map(i => `<option value="${i.id}">${i.name} — ${formatPrice(i.price)}</option>`).join('');
+  document.getElementById('tableItemAdditions').innerHTML = '';
+  select.onchange = () => renderTableItemAdditions(select.value);
+  renderTableItemAdditions(select.value);
+  document.getElementById('tableItemModal').classList.remove('hidden');
+}
+
+function renderTableItemAdditions(itemId) {
+  const item = allItems.find(i => i.id == itemId);
+  const container = document.getElementById('tableItemAdditions');
+  if (!item || !item.additions || item.additions.length === 0) {
+    container.innerHTML = '<p style="color:var(--text-muted);font-size:0.85rem;">لا توجد إضافات</p>';
+    return;
+  }
+  container.innerHTML = item.additions.map(a => `
+    <label class="addition-option">
+      <input type="checkbox" value="${a.id}" data-name="${a.name}" data-price="${a.price}">
+      <span>${a.name}</span>
+      <span class="add-price">+ ${formatPrice(a.price)}</span>
+    </label>
+  `).join('');
+}
+
+function closeTableItemModal() {
+  document.getElementById('tableItemModal').classList.add('hidden');
+}
+
+async function saveTableItem() {
+  const tabId = document.getElementById('tableItemTabId').value;
+  const itemId = document.getElementById('tableItemSelect').value;
+  const qty = parseInt(document.getElementById('tableItemQty').value) || 1;
+  const item = allItems.find(i => i.id == itemId);
+  if (!item) return;
+  
+  const checked = document.querySelectorAll('#tableItemAdditions input:checked');
+  const additions = Array.from(checked).map(cb => ({ id: parseInt(cb.value), name: cb.dataset.name, price: parseFloat(cb.dataset.price) }));
+  
+  const payload = [{
+    id: item.id,
+    name: item.name,
+    price: parseFloat(item.price),
+    quantity: qty,
+    additions: additions
+  }];
+  
+  try {
+    const res = await fetch(`${API}/table-tabs/${tabId}/items`, {
+      method: 'PUT',
+      headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ items: payload })
+    });
+    if (!res.ok) throw new Error('Failed');
+    showToast('تم إضافة الصنف ✅', 'success');
+    closeTableItemModal();
+    await loadTableTabs();
+    renderTableTabs();
+  } catch (e) { showToast('تعذر إضافة الصنف ❌', 'error'); }
+}
+
+async function closeTableTab(tabId) {
+  const confirmed = await showConfirm('هل تريد إغلاق تبويب هذه الطاولة؟ سيتم حفظ الطلب في السجل.', 'إغلاق التبويب', '✔️');
+  if (!confirmed) return;
+  try {
+    const res = await fetch(`${API}/table-tabs/${tabId}/close`, {
+      method: 'PUT',
+      headers: authHeaders()
+    });
+    if (!res.ok) throw new Error('Failed');
+    showToast('تم إغلاق التبويب وحفظ الطلب ✅', 'success');
+    await loadTableTabs();
+    renderTableTabs();
+    loadStats();
+  } catch (e) { showToast('تعذر إغلاق التبويب ❌', 'error'); }
+}
+
+async function deleteTableTab(tabId) {
+  const confirmed = await showConfirm('هل تريد حذف هذا التبويب؟ لا يمكن التراجع.', 'تأكيد الحذف', '🗑️');
+  if (!confirmed) return;
+  try {
+    await fetch(`${API}/table-tabs/${tabId}`, { method: 'DELETE', headers: authHeaders() });
+    showToast('تم الحذف ✅', 'success');
+    await loadTableTabs();
+    renderTableTabs();
+  } catch (e) { showToast('تعذر الحذف ❌', 'error'); }
+}
+
+function printTableReceipt(tabId) {
+  const tab = allTableTabs.find(t => t.id === tabId);
+  if (!tab) return;
+  const cafeName = allSettings.cafe_name || 'Caracalla Cafe';
+  let itemsHtml = '';
+  let total = 0;
+  (tab.items || []).forEach(it => {
+    let sub = it.price * it.quantity;
+    let addsHtml = '';
+    if (it.additions) {
+      it.additions.forEach(a => { sub += (a.price || 0) * it.quantity; addsHtml += `<div style="padding-right:1rem;font-size:0.85rem;color:#666;">+ ${a.name}</div>`; });
+    }
+    total += sub;
+    itemsHtml += `<div style="display:flex;justify-content:space-between;margin-bottom:0.2rem;"><span>${it.name} × ${it.quantity}</span><span>${Math.round(sub).toLocaleString('en-US')} ل.س</span></div>${addsHtml}`;
+  });
+  const w = window.open('', '_blank');
+  w.document.write(`
+    <html dir="rtl"><head><meta charset="UTF-8"><style>
+      body{font-family:'Tajawal',sans-serif;padding:1rem;font-size:1.1rem;}
+      h2{text-align:center;margin-bottom:0.5rem;font-size:1.4rem;}
+      .meta{text-align:center;color:#666;font-size:0.9rem;margin-bottom:1rem;}
+      .items{border-top:2px solid #333;border-bottom:2px solid #333;padding:0.5rem 0;}
+      .total{font-weight:800;font-size:1.3rem;text-align:center;margin-top:1rem;}
+      @media print{body{padding:0;}}
+    </style></head><body>
+      <h2>${cafeName}</h2>
+      <div class="meta">طاولة ${tab.table_number} — ${new Date().toLocaleString('ar-SY')}</div>
+      <div class="items">${itemsHtml}</div>
+      <div class="total">المجموع: ${Math.round(total).toLocaleString('en-US')} ل.س</div>
+      <script>window.onload=function(){window.print();setTimeout(()=>window.close(),500);};</script>
+    </body></html>
+  `);
+  w.document.close();
+}
+
+// ===================== EXPORT / IMPORT =====================
+async function exportItemsCSV() {
+  try {
+    const res = await fetch(`${API}/export/items`, { headers: authHeaders() });
+    if (!res.ok) throw new Error('Failed');
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'caracalla_items.csv';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+    showToast('تم تصدير المنتجات ✅', 'success');
+  } catch (e) { showToast('تعذر التصدير ❌', 'error'); }
+}
+
+async function importItemsCSV(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const text = await file.text();
+  const lines = text.split('\n').filter(l => l.trim());
+  if (lines.length < 2) return showToast('ملف CSV فارغ ⚠️', 'warning');
+  
+  const parseCSVLine = (line) => {
+    const result = [];
+    let current = '';
+    let inQuotes = false;
+    for (let i = 0; i < line.length; i++) {
+      const char = line[i];
+      if (char === '"' && line[i+1] === '"') { current += '"'; i++; }
+      else if (char === '"') { inQuotes = !inQuotes; }
+      else if (char === ',' && !inQuotes) { result.push(current); current = ''; }
+      else { current += char; }
+    }
+    result.push(current);
+    return result;
+  };
+  
+  const headers = parseCSVLine(lines[0]).map(h => h.trim().replace(/^"|"$/g, ''));
+  const items = [];
+  for (let i = 1; i < lines.length; i++) {
+    const cols = parseCSVLine(lines[i]);
+    const obj = {};
+    headers.forEach((h, idx) => {
+      let val = cols[idx] !== undefined ? cols[idx].trim().replace(/^"|"$/g, '').replace(/""/g, '"') : '';
+      if (h === 'price' || h === 'stock' || h === 'category_id') val = val ? parseFloat(val) : null;
+      if (h === 'is_available') val = val === 'true' || val === '1';
+      if (h === 'additions') { try { val = JSON.parse(val || '[]'); } catch { val = []; } }
+      obj[h] = val;
+    });
+    items.push(obj);
+  }
+  
+  if (!items.length) return showToast('لا توجد منتجات للاستيراد ⚠️', 'warning');
+  const confirmed = await showConfirm(`هل تريد استيراد ${items.length} منتج؟ سيتم إضافتها كمنتجات جديدة.`, 'تأكيد الاستيراد', '📤');
+  if (!confirmed) return;
+  
+  try {
+    const res = await fetch(`${API}/import/items`, {
+      method: 'POST',
+      headers: { ...authHeaders(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ items })
+    });
+    if (!res.ok) throw new Error('Failed');
+    const data = await res.json();
+    showToast(`تم استيراد ${data.imported} منتج ✅`, 'success');
+    await loadItems();
+    renderItems();
+  } catch (e) { showToast('تعذر الاستيراد ❌', 'error'); }
+  input.value = '';
 }
 
 document.addEventListener('click', (e) => {

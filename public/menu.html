@@ -38,7 +38,12 @@
         <span id="openStatusIcon">🟢</span>
         <span id="openStatusText">مفتوح الآن</span>
       </div>
-      <div class="categories-grid" id="categoriesGrid"></div>
+      <div class="categories-grid" id="categoriesGrid">
+        <div class="skeleton category-skeleton" style="height:180px;"></div>
+        <div class="skeleton category-skeleton" style="height:180px;"></div>
+        <div class="skeleton category-skeleton" style="height:180px;"></div>
+        <div class="skeleton category-skeleton" style="height:180px;"></div>
+      </div>
     </div>
   </div>
 
@@ -46,7 +51,12 @@
   <div id="menuItemsView" class="hidden container" style="padding-bottom: 100px;">
     <button class="btn btn-outline mb-1" onclick="showCategories()" style="margin-bottom:1rem;">← رجوع للأقسام</button>
     <div class="tabs" id="categoryTabs"></div>
-    <div id="menuGrid" class="grid"></div>
+    <div id="menuGrid" class="grid">
+      <div class="skeleton menu-skeleton" style="height:260px;"></div>
+      <div class="skeleton menu-skeleton" style="height:260px;"></div>
+      <div class="skeleton menu-skeleton" style="height:260px;"></div>
+      <div class="skeleton menu-skeleton" style="height:260px;"></div>
+    </div>
   </div>
 
   <!-- Cart Panel -->
@@ -176,12 +186,7 @@
   <div class="modal-overlay hidden" id="orderStatusModal">
     <div class="modal" style="max-width:500px;">
       <h2>📋 تتبع الطلب</h2>
-      <div class="form-group">
-        <label>رقم الطلب</label>
-        <input type="number" id="trackOrderId" placeholder="أدخل رقم الطلب">
-      </div>
-      <button class="btn btn-primary btn-block mb-1" onclick="trackOrder()">بحث</button>
-      <div id="trackResult"></div>
+      <div id="trackResult" style="margin-bottom:1rem;"></div>
       <button class="btn btn-outline btn-block mt-1" onclick="closeOrderStatus()">إغلاق</button>
     </div>
   </div>

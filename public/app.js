@@ -779,19 +779,35 @@ function closeCafeLocation() {
 // ===================== ORDER TRACKING =====================
 function showOrderStatus() {
   document.getElementById('orderStatusModal').classList.remove('hidden');
-  document.getElementById('trackOrderId').value = '';
   const resultDiv = document.getElementById('trackResult');
   resultDiv.innerHTML = '';
   
   const myOrders = JSON.parse(localStorage.getItem('cafeMyOrders') || '[]');
-  if (myOrders.length > 0) {
-    let html = '<div style="margin-bottom:0.8rem;"><strong style="color:var(--primary);">طلباتي من هذا الجهاز:</strong></div>';
-    html += '<div style="display:flex;flex-wrap:wrap;gap:0.5rem;margin-bottom:1rem;">';
-    myOrders.forEach(o => {
+  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Damascus' });
+  const todaysOrders = myOrders.filter(o => {
+    if (!o.date) return false;
+    const orderDate = new Date(o.date).toLocaleDateString('en-CA', { timeZone: 'Asia/Damascus' });
+    return orderDate === today;
+  });
+  
+  if (todaysOrders.length !== myOrders.length) {
+    localStorage.setItem('cafeMyOrders', JSON.stringify(todaysOrders));
+    const tokens = JSON.parse(localStorage.getItem('cafeOrderTokens') || '{}');
+    const newTokens = {};
+    todaysOrders.forEach(o => { if (tokens[o.daily]) newTokens[o.daily] = tokens[o.daily]; });
+    localStorage.setItem('cafeOrderTokens', JSON.stringify(newTokens));
+  }
+  
+  if (todaysOrders.length > 0) {
+    let html = '<div style="margin-bottom:0.8rem;"><strong style="color:var(--primary);">طلباتي لهذا اليوم:</strong></div>';
+    html += '<div style="display:flex;flex-wrap:wrap;gap:0.5rem;">';
+    todaysOrders.forEach(o => {
       html += `<button class="btn btn-outline btn-sm" onclick="trackOrder('${o.daily}')">طلب #${o.daily}</button>`;
     });
-    html += '</div><div style="border-top:1px solid var(--border);padding-top:0.8rem;margin-bottom:0.5rem;color:var(--text-muted);font-size:0.9rem;">أو أدخل رقم طلب يدوياً:</div>';
+    html += '</div>';
     resultDiv.innerHTML = html;
+  } else {
+    resultDiv.innerHTML = '<p style="color:var(--text-muted);text-align:center;padding:1rem;">لا توجد طلبات لهذا اليوم من هذا الجهاز.</p>';
   }
 }
 
